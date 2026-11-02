@@ -37,7 +37,7 @@ def test_agents_canonical_block_present():
 def test_readme_status_reports_rounds():
     text = (ROOT / "README.md").read_text()
     counts = re.findall(r"Closed rounds (\d+) of 100(?!\d)", text)
-    assert counts == ["3"], f"README status must report exactly one closed round count and it must be 2, found {counts}"
+    assert counts == ["4"], f"README status must report exactly one closed round count and it must be 2, found {counts}"
 
 
 def test_no_em_or_en_dash_in_text_files():
