@@ -8,7 +8,7 @@ Unqueued work dies overnight, because the runtimes hand the operator nothing whe
 
 ## Status
 
-Closed rounds 1 of 100. Round 1 landed in PR 2 and is recorded closed here. The package carries a stocked queue with exclusive leased claims on an injected clock, a runner that works a synthetic backlog to a full record with nothing dropped silently, and a morning brief in Markdown and JSON with the same content, all under contract obligations TS-1 to TS-10 and the review amendments TS-11 to TS-22. The round closed after the independent red team, the two-axis review, the owner verification pass, and the fixes for every finding they raised. Part of the impatient programming portfolio, in the Fleet Operations arc.
+Closed rounds 1 of 100. Round 1 landed in PR 2 and is recorded closed here. Round 2 is built and in review, and it adds decision resolution under contract obligations TS-23 to TS-27, so the operator answers the decisions the brief queued from a recorded resolutions file of verdicts and notes, and applying that file returns a resolved record with the answers folded in and the run history untouched. The package carries a stocked queue with exclusive leased claims on an injected clock, a runner that works a synthetic backlog to a full record with nothing dropped silently, and a morning brief in Markdown and JSON with the same content, all under contract obligations TS-1 to TS-10, the review amendments TS-11 to TS-22, and the Round 2 obligations TS-23 to TS-27. Part of the impatient programming portfolio, in the Fleet Operations arc.
 
 ## Licence
 

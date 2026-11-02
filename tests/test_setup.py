@@ -5,7 +5,7 @@ import re
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CANONICAL_PREFIX_SHA256 = "63d2f04005dc8eb111d3efca1be55c0911f9ad46bc7cf3c74d9f9908f4a86f11"
 EXPECTED_PREFIX = "TS"
-TEXT_SUFFIXES = {".md", ".yml", ".yaml", ".py", ".toml", ".txt"}
+TEXT_SUFFIXES = {".md", ".yml", ".yaml", ".py", ".toml", ".txt", ".json", ".jsonl"}
 
 
 def test_contract_stub_obligations_exist():
@@ -36,7 +36,8 @@ def test_agents_canonical_block_present():
 
 def test_readme_status_reports_rounds():
     text = (ROOT / "README.md").read_text()
-    assert re.search(r"Closed rounds 1 of 100(?!\d)", text), "README status must report closed rounds 1 of 100 exactly"
+    counts = re.findall(r"Closed rounds (\d+) of 100(?!\d)", text)
+    assert counts == ["1"], f"README status must report exactly one closed round count and it must be 1, found {counts}"
 
 
 def test_no_em_or_en_dash_in_text_files():
@@ -44,7 +45,8 @@ def test_no_em_or_en_dash_in_text_files():
     for p in ROOT.rglob("*"):
         if not p.is_file() or p.suffix not in TEXT_SUFFIXES:
             continue
-        if any(part in {".git", ".pytest_cache", "__pycache__"} for part in p.relative_to(ROOT).parts):
+        rel_parts = p.relative_to(ROOT).parts
+        if ".git" in rel_parts or any(part in {".pytest_cache", "__pycache__"} for part in rel_parts) or (rel_parts and rel_parts[0] in {".venv", "venv", "node_modules", ".tox"}):
             continue
         t = p.read_text()
         if "\u2014" in t or "\u2013" in t:

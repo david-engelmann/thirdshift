@@ -1,0 +1,79 @@
+{
+  "counts": {
+    "backlog": 5,
+    "finished": 4,
+    "recorded": 5,
+    "unfinished": 1
+  },
+  "decision_counts": {
+    "carried": 1,
+    "queued": 0,
+    "resolved": 1
+  },
+  "decisions": [],
+  "produced": [
+    "completed task-1",
+    "completed task-2",
+    "completed task-5"
+  ],
+  "ran": [
+    {
+      "id": "task-1",
+      "output": "completed task-1",
+      "reason": "",
+      "status": "finished",
+      "title": "Sort the synthetic inbox",
+      "worker": "worker-1"
+    },
+    {
+      "id": "task-2",
+      "output": "completed task-2",
+      "reason": "",
+      "status": "finished",
+      "title": "Draft the synthetic summary",
+      "worker": "worker-2"
+    },
+    {
+      "id": "task-3",
+      "output": "",
+      "reason": "stub worker could not complete this task",
+      "status": "unfinished",
+      "title": "Rebuild the synthetic index",
+      "worker": "worker-1"
+    },
+    {
+      "id": "task-4",
+      "output": "",
+      "reason": "",
+      "status": "finished",
+      "title": "Approve the synthetic release",
+      "worker": "worker-2"
+    },
+    {
+      "id": "task-5",
+      "output": "completed task-5",
+      "reason": "",
+      "status": "finished",
+      "title": "File the synthetic report",
+      "worker": "worker-1"
+    }
+  ],
+  "resolved": [
+    {
+      "id": "decision-task-4",
+      "item": "task-4",
+      "note": "Synthetic build approved for the overnight run",
+      "options": [
+        "approve",
+        "reject"
+      ],
+      "question": "Release the synthetic build tonight",
+      "verdict": "approve"
+    }
+  ],
+  "stock": {
+    "stocked_at_start": 5,
+    "stockouts_recorded": 0,
+    "workers": 2
+  }
+}
