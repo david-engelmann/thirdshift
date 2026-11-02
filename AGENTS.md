@@ -59,3 +59,5 @@ This repo is thirdshift. Its contract lives in CONTRACT.md and that file is the 
 Boundary. Thirdshift is the fleet that works through the usage window. Paceghost, owned by another chat, is the game raced against that window, and thirdshift never implements the race.
 
 First slice. A stocked queue that always holds work ahead of its workers, a runner that works a test backlog under claim discipline, and a morning brief that lists what ran and which decisions are queued for the operator.
+
+Identity exception. The maintainer identity in the required Signed-off-by trailer is the repo owner's public sign-off identity. It is permitted in commit metadata and in that instruction, and the sanitization rule does not apply to it.
