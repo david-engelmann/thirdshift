@@ -13,3 +13,55 @@ TS-S3. A supervised run over a test backlog finishes every item it claims or rec
 TS-S4. The morning brief lists what ran, what it produced, and every decision queued for the operator, and each queued decision can be approved or rejected from the brief data alone.
 
 TS-S5. Every fixture and example in this repo is synthetic and built for this repo, and no real trace or session data appears anywhere in the tree.
+
+## Round 1 obligations
+
+The obligations below make the stub obligations executable. TS-1 and TS-2 make TS-S1 executable. TS-3 and TS-4 make TS-S2 executable. TS-5 and TS-6 make TS-S3 executable. TS-7 and TS-8 make TS-S4 executable. TS-9 and TS-10 make TS-S5 and the honesty of the whole slice executable.
+
+TS-1. The queue is stocked when the number of pending and unclaimed items is at least the number of registered workers, and the queue reports its state through a stock report that names the worker count, the stocked count, the deficit, and whether a stockout stands. A stock report that hides a deficit is a defect.
+
+TS-2. When a registered worker asks for the next item and no pending and unclaimed item exists, the queue raises a stockout error and records the stockout in its state, so an idle worker is always a recorded defect and never a silent wait.
+
+TS-3. A claim holds an item for exactly one worker. A second claim on an item whose claim is still live fails with a claim conflict, and the failed claim changes no state, so the first holder keeps the item and the item appears in no second claim record.
+
+TS-4. Every claim carries a lease that expires at a time read from a clock the caller injects. Once the clock passes the expiry, another worker may claim the item. Releasing a live claim also frees the item at once. No code path reads wall time directly, and no test sleeps to wait out a lease.
+
+TS-5. The runner works a backlog to a record. Every item in the backlog appears exactly once in the run record as finished with its output or as unfinished with a reason, and the counts in the record add up to the size of the backlog, so an item the runner dropped silently would break the record.
+
+TS-6. The runner takes work only through claims on the queue, registers its workers before it starts, and names the claiming worker on every run record entry, so work done outside the claim discipline cannot hide in the record.
+
+TS-7. A backlog task marked as a decision task finishes by queueing a decision rather than by producing work output. Every queued decision carries an identifier, a question, and the two responses approve and reject, so the operator can answer from the decision record alone.
+
+TS-8. The morning brief exists as Markdown and as JSON with the same content. Both forms list what ran with the worker and the outcome for each item, what the run produced, and every queued decision with its identifier and question and both responses, so anything readable in one form is present in the other.
+
+TS-9. A run over the same backlog with the same starting clock produces byte identical brief files, because the run records no wall time and orders every list by item identifier, so a brief can be regenerated and diffed without noise.
+
+TS-10. The package depends on the Python standard library only, and every fixture, backlog, and example in the repo is synthetic and written for this repo, so the slice runs offline with nothing installed beyond Python and a test runner.
+
+## Round 1 review amendments
+
+The obligations below amend the Round 1 obligations after the independent red team and two axis review of the first build. The earlier text is left standing and these obligations govern where the two disagree.
+
+TS-11. A completion is accepted only while the claim lease is still live on the injected clock. Once the lease has expired, completion by the former holder fails with a claim conflict and changes no state, whether or not another worker has claimed the item in the meantime.
+
+TS-12. A claim with a lease of zero or negative seconds is rejected with a clear error before any state changes, so a stillborn lease can never be handed out.
+
+TS-13. Reading the queue never changes it. The stock report and the pending list are computed from the claims on record without deleting any of them, and expired claims are cleared only inside operations that change the queue, such as claiming, releasing, or completing.
+
+TS-14. Every stockout is recorded, whichever path raises it. A worker that claims a named item and finds it missing or already done raises the stockout error and adds to the same recorded stockout count as a worker that asks for the next item and finds none waiting.
+
+TS-15. A backlog that names the same item identifier twice still runs to a full record. The first usable entry with an identifier is worked normally, and every later usable entry with that identifier is recorded as unfinished with a reason that names the duplication, so the counts in the record still add up to the size of the backlog.
+
+TS-16. A backlog entry that cannot become a task, because it is not an object or because it carries no identifier, is recorded as unfinished with a reason that names the defect, and the run works the remaining entries instead of failing. An entry that carries only an identifier still runs.
+
+TS-17. A task that carries a question is a decision or it is malformed. When the kind is missing or is anything other than decision while a question is present, the entry is recorded as unfinished with a reason that names the malformed decision, and its question is never dropped by running it as work. A decision task with no question falls back to its title as the question.
+
+TS-18. The two brief forms carry the same content without exception. The Markdown brief renders the stock block, the title of every item that ran, and the item behind every decision, alongside everything the JSON form carries, so a reader of either form sees the whole brief.
+
+TS-19. Worker attribution is decided by item identifier order, never by the order entries appear in the backlog. The runner sorts the work by identifier before it assigns workers, so the same backlog in a different entry order produces byte identical briefs.
+
+TS-20. The stock block in a brief reports the run itself. It names the workers on the run, the items stocked when the run started, and the stockouts recorded during the run, and it never reports a standing stockout for a run that finished its backlog. The live queue keeps its own stock report under TS-1 and TS-2.
+
+TS-21. A backlog file that cannot be read as a backlog fails at load with a clear error. Invalid JSON and an object with no tasks list are load errors, the command line prints the error to standard error and exits with status 2, and no traceback is shown. A run asked to work a non-empty backlog with no workers fails with a clear validation error before any item is touched.
+
+TS-22. The queue takes its clock from its caller and never defaults to the wall clock. Building a queue without a clock is an error, so every lease in every run reads time from a clock somebody chose.

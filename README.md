@@ -8,7 +8,7 @@ Unqueued work dies overnight, because the runtimes hand the operator nothing whe
 
 ## Status
 
-Setup slice in progress. The build has not started. Closed rounds 0 of 100. The contract is a stub and is not yet met. Part of the impatient programming portfolio, in the Fleet Operations arc.
+Round 1 is built and in review. The package carries a stocked queue with exclusive leased claims, a runner that works a synthetic backlog to a full record, and a morning brief in Markdown and JSON, all under contract obligations TS-1 to TS-10 and the review amendments TS-11 to TS-22 that follow them. The fixes for the review findings have landed and the contract is not recorded as met until the owner reviews pass on the fixed build. Closed rounds 0 of 100, because a round closes only after the owner reviews pass. Part of the impatient programming portfolio, in the Fleet Operations arc.
 
 ## Licence
 
