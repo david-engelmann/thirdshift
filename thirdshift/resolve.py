@@ -1,8 +1,8 @@
 """Decision resolution, the operator answers the decisions the brief queued."""
 
 import copy
-import json
-from pathlib import Path
+
+from .reading import read_json_file
 
 VERDICTS = ("approve", "reject")
 
@@ -27,18 +27,9 @@ def parse_resolutions_entries(data):
 
 
 def read_resolutions_file(path):
-    target = Path(path)
-    try:
-        text = target.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ResolutionError("resolutions file cannot be read, " + str(path)) from exc
-    except UnicodeDecodeError as exc:
-        raise ResolutionError("resolutions file is not valid UTF-8, " + str(path)) from exc
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ResolutionError("resolutions file is not valid JSON, " + str(path)) from exc
-    return parse_resolutions_entries(data)
+    return read_json_file(
+        path, ResolutionError, "resolutions file", parse_resolutions_entries
+    )
 
 
 def load_resolutions(path):
@@ -51,26 +42,25 @@ def load_resolutions(path):
     return read_resolutions_file(path)
 
 
+def _parse_brief_record(data):
+    """Check the brief shape on a decoded value and return the record.
+
+    The tail parse of the brief surface. The value must be an object
+    carrying a decisions list, the shape the brief step writes.
+    Anything else is a load error.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get("decisions"), list):
+        raise ResolutionError("brief file is not a brief record, it carries no decisions list")
+    return data
+
+
 def read_brief_file(path):
     """Read a brief JSON file and return the record it carries.
 
     The file must hold a JSON object with a decisions list, the shape
     the brief step writes. Anything else is a load error.
     """
-    target = Path(path)
-    try:
-        text = target.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ResolutionError("brief file cannot be read, " + str(path)) from exc
-    except UnicodeDecodeError as exc:
-        raise ResolutionError("brief file is not valid UTF-8, " + str(path)) from exc
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ResolutionError("brief file is not valid JSON, " + str(path)) from exc
-    if not isinstance(data, dict) or not isinstance(data.get("decisions"), list):
-        raise ResolutionError("brief file is not a brief record, it carries no decisions list")
-    return data
+    return read_json_file(path, ResolutionError, "brief file", _parse_brief_record)
 
 
 def _check_resolution(entry, carried_ids, seen_ids):

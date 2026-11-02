@@ -2,10 +2,10 @@
 
 import json
 import math
-from pathlib import Path
 
 from .clock import FakeClock
 from .queue import Item, WorkQueue
+from .reading import read_json_file
 
 LEASE_SECONDS = 30.0
 
@@ -67,18 +67,7 @@ def parse_backlog_entries(data):
 
 
 def read_backlog_file(path):
-    target = Path(path)
-    try:
-        text = target.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise BacklogError("backlog file cannot be read, " + str(path)) from exc
-    except UnicodeDecodeError as exc:
-        raise BacklogError("backlog file is not valid UTF-8, " + str(path)) from exc
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise BacklogError("backlog file is not valid JSON, " + str(path)) from exc
-    return parse_backlog_entries(data)
+    return read_json_file(path, BacklogError, "backlog file", parse_backlog_entries)
 
 
 def load_backlog(path):
