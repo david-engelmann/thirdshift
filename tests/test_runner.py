@@ -173,3 +173,23 @@ def test_load_backlog_rejects_an_object_without_a_tasks_list(tmp_path):
     path.write_text('{"items": []}')
     with pytest.raises(BacklogError):
         load_backlog(path)
+
+
+def test_wrongly_typed_fields_are_recorded_not_crashing():
+    record = run_backlog([
+        {"id": 5, "title": "numeric id"},
+        {"id": ["a"], "title": "list id"},
+        {"id": "t-title", "title": 3},
+        {"id": "t-kind", "kind": 7},
+        {"id": "t-question", "kind": "decision", "question": 9},
+        {"id": "", "title": "empty id"},
+        {"id": "good", "title": "fine"},
+    ])
+    reasons = [entry.get("reason", "") for entry in record["ran"]]
+    assert record["counts"]["backlog"] == 7
+    assert record["counts"]["recorded"] == 7
+    assert record["counts"]["finished"] == 1
+    assert any("id is not a non-empty string" in r for r in reasons)
+    assert any("title is not a string" in r for r in reasons)
+    assert any("kind is not a string" in r for r in reasons)
+    assert any("question is not a string" in r for r in reasons)

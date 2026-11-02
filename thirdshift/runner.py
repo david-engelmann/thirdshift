@@ -46,9 +46,11 @@ def parse_backlog_entries(data):
 def read_backlog_file(path):
     target = Path(path)
     try:
-        text = target.read_text()
+        text = target.read_text(encoding="utf-8")
     except OSError as exc:
         raise BacklogError("backlog file cannot be read, " + str(path)) from exc
+    except UnicodeDecodeError as exc:
+        raise BacklogError("backlog file is not valid UTF-8, " + str(path)) from exc
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -77,6 +79,22 @@ def _recorded_entry(entry_id, title, reason):
     }
 
 
+def _field_type_error(entry):
+    """Name the first wrongly typed field on a backlog entry, or None.
+
+    TS-16 covers entries whose fields carry the wrong types, not only
+    entries that are missing or not objects. An id must be a non-empty
+    string, and title, kind, and question must be strings when present.
+    """
+    item_id = entry.get("id")
+    if not isinstance(item_id, str) or not item_id:
+        return "malformed backlog entry, its id is not a non-empty string"
+    for field in ("title", "kind", "question"):
+        value = entry.get(field)
+        if value is not None and not isinstance(value, str):
+            return "malformed backlog entry, its " + field + " is not a string"
+    return None
+
 def _prepare_entry(entry, seen_ids):
     """Sort one backlog entry into a runnable item or a recorded entry.
 
@@ -93,6 +111,14 @@ def _prepare_entry(entry, seen_ids):
                 "malformed-entry",
                 title if isinstance(title, str) else "",
                 "malformed backlog entry, it carries no id",
+            )
+        field_error = _field_type_error(entry)
+        if field_error is not None:
+            raw_title = entry.get("title", "")
+            return None, _recorded_entry(
+                "malformed-entry",
+                raw_title if isinstance(raw_title, str) else "",
+                field_error,
             )
         item = Item.from_dict(entry)
     else:

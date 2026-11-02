@@ -16,7 +16,7 @@ from .runner import BacklogError, load_backlog, read_backlog_file, run_backlog
 
 
 def _write_tasks(path, tasks):
-    Path(path).write_text(json.dumps({"tasks": tasks}, indent=2, sort_keys=True) + "\n")
+    Path(path).write_text(json.dumps({"tasks": tasks}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def cmd_enqueue(args):
@@ -36,7 +36,7 @@ def cmd_run(args):
     record = run_backlog(load_backlog(args.backlog))
     text = json.dumps(record, indent=2, sort_keys=True) + "\n"
     if args.result:
-        Path(args.result).write_text(text)
+        Path(args.result).write_text(text, encoding="utf-8")
     print(text, end="")
     return 0
 
@@ -44,9 +44,9 @@ def cmd_run(args):
 def cmd_brief(args):
     record = run_backlog(load_backlog(args.backlog))
     if args.md:
-        Path(args.md).write_text(brief_markdown(record))
+        Path(args.md).write_text(brief_markdown(record), encoding="utf-8")
     if args.json:
-        Path(args.json).write_text(brief_json(record))
+        Path(args.json).write_text(brief_json(record), encoding="utf-8")
     if not args.md and not args.json:
         print(brief_markdown(record), end="")
     return 0

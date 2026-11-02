@@ -31,8 +31,8 @@ def test_cli_brief_over_example_backlog_matches_the_committed_example_brief(tmp_
     json_path = tmp_path / "brief.json"
     result = run_cli("brief", "--backlog", "examples/backlog.json", "--md", str(md_path), "--json", str(json_path))
     assert result.returncode == 0, result.stderr
-    assert md_path.read_text() == (ROOT / "examples" / "brief.md").read_text()
-    assert json_path.read_text() == (ROOT / "examples" / "brief.json").read_text()
+    assert md_path.read_text(encoding="utf-8") == (ROOT / "examples" / "brief.md").read_text(encoding="utf-8")
+    assert json_path.read_text(encoding="utf-8") == (ROOT / "examples" / "brief.json").read_text(encoding="utf-8")
 
 
 def test_cli_enqueue_run_brief_end_to_end(tmp_path):
@@ -48,10 +48,10 @@ def test_cli_enqueue_run_brief_end_to_end(tmp_path):
     json_path = tmp_path / "brief.json"
     brief = run_cli("brief", "--backlog", str(backlog), "--md", str(md_path), "--json", str(json_path), cwd=tmp_path)
     assert brief.returncode == 0, brief.stderr
-    data = json.loads(json_path.read_text())
+    data = json.loads(json_path.read_text(encoding="utf-8"))
     assert data["counts"]["recorded"] == 2
     assert data["decisions"][0]["question"] == "Ship the synthetic gate"
-    assert "task-1" in md_path.read_text()
+    assert "task-1" in md_path.read_text(encoding="utf-8")
 
 
 def test_cli_enqueue_rejects_a_duplicate_id(tmp_path):
@@ -76,4 +76,17 @@ def test_cli_rejects_a_backlog_object_without_a_tasks_list(tmp_path):
     result = run_cli("run", "--backlog", str(backlog), cwd=tmp_path)
     assert result.returncode == 2
     assert result.stderr.strip() != ""
+    assert "Traceback" not in result.stderr
+
+
+def test_cli_invalid_utf8_backlog_exits_2_without_traceback(tmp_path):
+    import subprocess, sys
+    backlog = tmp_path / "bad.json"
+    backlog.write_bytes(b'{"tasks": [{"id": "x", "title": "\xff\xfe"}]}')
+    result = subprocess.run(
+        [sys.executable, "-m", "thirdshift", "run", "--backlog", str(backlog)],
+        capture_output=True, text=True, cwd=str(ROOT),
+        env={"PYTHONPATH": str(ROOT), "PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode == 2
     assert "Traceback" not in result.stderr
