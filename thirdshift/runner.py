@@ -1,12 +1,32 @@
 """A runner that works a backlog of synthetic tasks through the queue."""
 
 import json
+import math
 from pathlib import Path
 
 from .clock import FakeClock
 from .queue import Item, WorkQueue
 
 LEASE_SECONDS = 30.0
+
+WINDOW_CLOSED_REASON = "the window closed before this item was started"
+
+
+def _validate_window(window):
+    """Return the window as a float, or None when no window was given.
+
+    A window must be a non-negative finite number of seconds. Anything
+    else is refused before any item is touched, so a bad window can
+    never start a partial run.
+    """
+    if window is None:
+        return None
+    if isinstance(window, bool) or not isinstance(window, (int, float)):
+        raise ValueError("window must be a non-negative number of seconds")
+    value = float(window)
+    if not math.isfinite(value) or value < 0:
+        raise ValueError("window must be a non-negative number of seconds")
+    return value
 
 
 class BacklogError(Exception):
@@ -143,14 +163,24 @@ def _prepare_entry(entry, seen_ids):
     return item, None
 
 
-def run_backlog(entries, worker_ids=("worker-1", "worker-2"), clock=None, queue=None, advance_per_item=1.0):
+def run_backlog(entries, worker_ids=("worker-1", "worker-2"), clock=None, queue=None, advance_per_item=1.0, window=None):
     """Work every entry once, claiming through the queue, and return the record.
 
     The record lists one entry per backlog entry, ordered by item
     identifier, so nothing the runner dropped can hide. Workers are
     assigned over the identifier sorted work list, so the record never
     depends on the order entries appear in the backlog.
+
+    When window is given, it is a number of seconds on the run clock
+    measured from the start of the run. The runner reads the clock
+    before it starts each item, and once the elapsed time has reached
+    the window it starts no further item. Items left unstarted are
+    recorded with the window closed reason, never claimed, and never
+    counted as stockouts or completions. An item already started is
+    worked to its outcome even when the clock passes the window while
+    it is worked.
     """
+    window_seconds = _validate_window(window)
     entries = list(entries)
     if entries and not worker_ids:
         raise ValueError("run_backlog needs at least one worker to work a non-empty backlog")
@@ -162,6 +192,7 @@ def run_backlog(entries, worker_ids=("worker-1", "worker-2"), clock=None, queue=
         clock = queue.clock
     for worker_id in worker_ids:
         queue.register_worker(worker_id)
+    started_at = clock.now()
 
     seen_ids = set()
     runnable = []
@@ -178,7 +209,14 @@ def run_backlog(entries, worker_ids=("worker-1", "worker-2"), clock=None, queue=
     stocked_at_start = len(queue.pending_ids())
 
     decisions = []
+    started = 0
+    unstarted = 0
     for index, item in enumerate(runnable):
+        if window_seconds is not None and clock.now() - started_at >= window_seconds:
+            unstarted += 1
+            ran.append(_recorded_entry(item.item_id, item.title, WINDOW_CLOSED_REASON))
+            continue
+        started += 1
         worker_id = worker_ids[index % len(worker_ids)]
         claim = queue.claim(item.item_id, worker_id, lease_seconds=LEASE_SECONDS)
         result = stub_worker(item)
@@ -205,7 +243,7 @@ def run_backlog(entries, worker_ids=("worker-1", "worker-2"), clock=None, queue=
         clock.advance(advance_per_item)
 
     ran.sort(key=lambda entry: (entry["id"], json.dumps(entry, sort_keys=True)))
-    return {
+    record = {
         "ran": ran,
         "produced": [entry["output"] for entry in ran if entry["output"]],
         "decisions": sorted(decisions, key=lambda d: d["id"]),
@@ -221,3 +259,11 @@ def run_backlog(entries, worker_ids=("worker-1", "worker-2"), clock=None, queue=
             "stockouts_recorded": queue.stockouts,
         },
     }
+    if window_seconds is not None:
+        record["window"] = {
+            "window_seconds": window_seconds,
+            "elapsed_seconds": clock.now() - started_at,
+            "started": started,
+            "unstarted": unstarted,
+        }
+    return record

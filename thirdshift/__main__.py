@@ -34,8 +34,26 @@ def cmd_enqueue(args):
     return 0
 
 
+def _window_value(raw):
+    """Turn the window option text into a number of seconds, or None.
+
+    A bad window follows the usual error discipline of the tool, so it
+    raises BacklogError and the caller prints one error line and exits
+    with status 2 rather than showing an argument parsing traceback.
+    """
+    if raw is None:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise BacklogError("window seconds is not a number, " + str(raw)) from exc
+    if value != value or value in (float("inf"), float("-inf")) or value < 0:
+        raise BacklogError("window seconds must be a non-negative number, " + str(raw))
+    return value
+
+
 def cmd_run(args):
-    record = run_backlog(load_backlog(args.backlog))
+    record = run_backlog(load_backlog(args.backlog), window=_window_value(args.window_seconds))
     text = json.dumps(record, indent=2, sort_keys=True) + "\n"
     if args.result:
         Path(args.result).write_text(text, encoding="utf-8")
@@ -44,7 +62,7 @@ def cmd_run(args):
 
 
 def cmd_brief(args):
-    record = run_backlog(load_backlog(args.backlog))
+    record = run_backlog(load_backlog(args.backlog), window=_window_value(args.window_seconds))
     if args.md:
         Path(args.md).write_text(brief_markdown(record), encoding="utf-8")
     if args.json:
@@ -76,12 +94,14 @@ def main(argv=None):
     p_run = sub.add_parser("run")
     p_run.add_argument("--backlog", required=True)
     p_run.add_argument("--result")
+    p_run.add_argument("--window-seconds")
     p_run.set_defaults(func=cmd_run)
 
     p_brief = sub.add_parser("brief")
     p_brief.add_argument("--backlog", required=True)
     p_brief.add_argument("--md")
     p_brief.add_argument("--json")
+    p_brief.add_argument("--window-seconds")
     p_brief.set_defaults(func=cmd_brief)
 
     p_resolve = sub.add_parser("resolve")
