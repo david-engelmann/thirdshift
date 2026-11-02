@@ -1,0 +1,9 @@
+{
+  "tasks": [
+    {"id": "task-1", "title": "Sort the synthetic inbox", "kind": "work", "question": ""},
+    {"id": "task-2", "title": "Draft the synthetic summary", "kind": "work", "question": ""},
+    {"id": "task-3", "title": "Rebuild the synthetic index", "kind": "fail", "question": ""},
+    {"id": "task-4", "title": "Approve the synthetic release", "kind": "decision", "question": "Release the synthetic build tonight"},
+    {"id": "task-5", "title": "File the synthetic report", "kind": "work", "question": ""}
+  ]
+}
