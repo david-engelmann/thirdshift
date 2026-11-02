@@ -131,3 +131,15 @@ def test_cli_resolve_applies_to_a_windowed_brief_built_by_the_cli(tmp_path):
     assert out["resolved"][0]["verdict"] == "approve"
     assert out["window"]["started"] == 2
     assert out["window"]["unstarted"] == 1
+
+
+@pytest.mark.parametrize("step", ["run", "brief"])
+@pytest.mark.parametrize("bad", ["-inf", "-nan", "-2.5"])
+def test_cli_refuses_a_dash_prefixed_window_value_with_one_error_line(step, bad, tmp_path):
+    backlog = tmp_path / "backlog.json"
+    write_json(backlog, BACKLOG)
+    result = run_cli(step, "--backlog", str(backlog), "--window-seconds", bad, cwd=tmp_path)
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert len(result.stderr.strip().splitlines()) == 1
+    assert "Traceback" not in result.stderr

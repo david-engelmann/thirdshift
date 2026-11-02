@@ -21,9 +21,12 @@ def _validate_window(window):
     """
     if window is None:
         return None
-    if isinstance(window, bool) or not isinstance(window, (int, float)):
+    if isinstance(window, bool) or isinstance(window, str):
         raise ValueError("window must be a non-negative number of seconds")
-    value = float(window)
+    try:
+        value = float(window)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("window must be a non-negative number of seconds") from None
     if not math.isfinite(value) or value < 0:
         raise ValueError("window must be a non-negative number of seconds")
     return value

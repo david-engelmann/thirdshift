@@ -9,6 +9,8 @@ Subcommands
 
 import argparse
 import json
+import math
+import re
 import sys
 from pathlib import Path
 
@@ -47,7 +49,7 @@ def _window_value(raw):
         value = float(raw)
     except (TypeError, ValueError) as exc:
         raise BacklogError("window seconds is not a number, " + str(raw)) from exc
-    if value != value or value in (float("inf"), float("-inf")) or value < 0:
+    if not math.isfinite(value) or value < 0:
         raise BacklogError("window seconds must be a non-negative number, " + str(raw))
     return value
 
@@ -79,7 +81,42 @@ def cmd_resolve(args):
     return 0
 
 
+_WINDOW_VALUE_TOKEN = re.compile(
+    r"^-(\d|\.\d|nan$|inf$|infinity$)", re.IGNORECASE
+)
+
+
+def _join_window_value(argv):
+    """Join a dash-prefixed window value onto its flag before parsing.
+
+    Argparse treats a token that starts with a dash as an option, so a
+    window value written in two tokens (-inf, -nan, -2.5) never reaches
+    the validator and the refusal comes out as a usage block instead of
+    the one error line TS-32 requires. A token that reads as a number
+    after its dash is the flag's value, so it is joined into the equals
+    form here and validated on the usual path.
+    """
+    joined = []
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if (
+            token == "--window-seconds"
+            and index + 1 < len(argv)
+            and _WINDOW_VALUE_TOKEN.match(argv[index + 1])
+        ):
+            joined.append(token + "=" + argv[index + 1])
+            index += 2
+        else:
+            joined.append(token)
+            index += 1
+    return joined
+
+
 def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    argv = _join_window_value(list(argv))
     parser = argparse.ArgumentParser(prog="thirdshift")
     sub = parser.add_subparsers(dest="command", required=True)
 

@@ -237,3 +237,23 @@ def test_resolutions_apply_to_a_windowed_run_exactly_as_before():
     for key in ("ran", "produced", "counts", "stock"):
         assert out[key] == snapshot[key]
     assert record == snapshot
+
+
+# The Round 3 review pins, TS-33.
+
+
+def test_a_decimal_or_fraction_window_is_accepted_as_the_number_it_names():
+    from decimal import Decimal
+    from fractions import Fraction
+
+    record = run_backlog(BACKLOG, clock=FakeClock(), window=Decimal("2"))
+    assert record["window"]["window_seconds"] == 2.0
+    assert record["window"]["started"] == 2
+    record = run_backlog(BACKLOG, clock=FakeClock(), window=Fraction(3, 2))
+    assert record["window"]["window_seconds"] == 1.5
+    assert record["window"]["started"] == 2
+
+
+def test_a_window_too_large_to_convert_is_a_validation_error():
+    with pytest.raises(ValueError):
+        run_backlog(BACKLOG, clock=FakeClock(), window=10**400)
