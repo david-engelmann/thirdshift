@@ -4,6 +4,7 @@ Subcommands
   enqueue  append one task to a backlog file
   run      work a backlog file and write the run record as JSON
   brief    work a backlog file and write the morning brief as Markdown and JSON
+  resolve  fold a resolutions file into a brief JSON file and print the resolved record
 """
 
 import argparse
@@ -12,6 +13,7 @@ import sys
 from pathlib import Path
 
 from .brief import brief_json, brief_markdown
+from .resolve import ResolutionError, apply_resolutions, load_resolutions, read_brief_file
 from .runner import BacklogError, load_backlog, read_backlog_file, run_backlog
 
 
@@ -52,6 +54,13 @@ def cmd_brief(args):
     return 0
 
 
+def cmd_resolve(args):
+    record = read_brief_file(args.brief)
+    resolved = apply_resolutions(record, load_resolutions(args.resolutions))
+    print(json.dumps(resolved, indent=2, sort_keys=True) + "\n", end="")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="thirdshift")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -75,10 +84,15 @@ def main(argv=None):
     p_brief.add_argument("--json")
     p_brief.set_defaults(func=cmd_brief)
 
+    p_resolve = sub.add_parser("resolve")
+    p_resolve.add_argument("--brief", required=True)
+    p_resolve.add_argument("--resolutions", required=True)
+    p_resolve.set_defaults(func=cmd_resolve)
+
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except BacklogError as exc:
+    except (BacklogError, ResolutionError) as exc:
         print("error - " + str(exc), file=sys.stderr)
         return 2
 
