@@ -1,4 +1,4 @@
-"""Pins for TS-23 to TS-26, decision resolution over a brief record."""
+"""Pins for TS-23 to TS-26 and TS-28, decision resolution over a brief record."""
 
 import copy
 import json
@@ -172,3 +172,53 @@ def test_a_resolutions_file_that_is_a_bare_list_fails_at_load(tmp_path):
 def test_a_missing_resolutions_file_fails_at_load(tmp_path):
     with pytest.raises(ResolutionError):
         load_resolutions(tmp_path / "nope.json")
+
+
+def _record_with(decisions):
+    record = make_record()
+    record["decisions"] = decisions
+    return record
+
+
+def _decision(decision_id):
+    return {
+        "id": decision_id,
+        "item": "task-x",
+        "question": "Ship the synthetic gate",
+        "options": ["approve", "reject"],
+    }
+
+
+def test_a_brief_with_a_non_string_decision_id_is_refused():
+    record = _record_with([_decision("d1"), {**_decision("d2"), "id": ["x"]}])
+    with pytest.raises(ResolutionError):
+        apply_resolutions(record, [{"decision": "d1", "verdict": "approve", "note": "n"}])
+
+
+def test_a_brief_carrying_one_decision_twice_is_refused():
+    record = _record_with([_decision("d1"), _decision("d1")])
+    with pytest.raises(ResolutionError):
+        apply_resolutions(record, [{"decision": "d1", "verdict": "approve", "note": "n"}])
+
+
+def test_a_brief_with_a_non_object_decision_is_refused():
+    record = _record_with(["junk", _decision("d1")])
+    with pytest.raises(ResolutionError):
+        apply_resolutions(record, [{"decision": "d1", "verdict": "approve", "note": "n"}])
+
+
+def test_a_brief_with_an_id_less_decision_is_refused():
+    entry = _decision("d1")
+    del entry["id"]
+    record = _record_with([entry])
+    with pytest.raises(ResolutionError):
+        apply_resolutions(record, [])
+
+
+def test_the_resolved_record_shares_no_mutable_state_with_its_input():
+    record = make_record()
+    out = apply_resolutions(record, [APPROVE_FIRST])
+    out["decisions"][0]["question"] = "mutated"
+    out["ran"].append({"item": "mutant"})
+    fresh = make_record()
+    assert record == fresh

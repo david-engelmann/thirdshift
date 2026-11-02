@@ -125,6 +125,21 @@ def test_cli_resolve_over_the_committed_examples_matches_the_committed_resolved_
     assert result.stdout == expected
 
 
+def test_cli_resolve_refuses_a_brief_with_a_non_string_decision_id(tmp_path):
+    brief = tmp_path / "brief.json"
+    write_json(brief, {"decisions": [
+        {"id": "d1", "item": "t1", "question": "q1", "options": ["approve", "reject"]},
+        {"id": ["x"], "item": "t2", "question": "q2", "options": ["approve", "reject"]},
+    ], "ran": [], "produced": [], "counts": {}, "stock": {}})
+    resolutions = tmp_path / "resolutions.json"
+    write_json(resolutions, {"resolutions": [{"decision": "d1", "verdict": "approve", "note": "n"}]})
+    result = run_cli("resolve", "--brief", str(brief), "--resolutions", str(resolutions), cwd=tmp_path)
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert result.stderr.count("\n") == 1
+    assert "Traceback" not in result.stderr
+
+
 def test_cli_resolve_refuses_a_brief_file_with_no_decisions_list(tmp_path):
     not_a_brief = tmp_path / "brief.json"
     write_json(not_a_brief, {"tasks": []})

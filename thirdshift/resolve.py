@@ -1,5 +1,6 @@
 """Decision resolution, the operator answers the decisions the brief queued."""
 
+import copy
 import json
 from pathlib import Path
 
@@ -108,6 +109,40 @@ def _check_resolution(entry, carried_ids, seen_ids):
     return decision, verdict, note
 
 
+def _check_brief_decisions(decisions):
+    """Validate the decisions a brief record carries and return their ids.
+
+    Every entry must be an object carrying a non-empty string id and
+    string item and question fields, the shape the brief step writes,
+    and no id may repeat. A record outside that shape is refused whole,
+    so no defect in the brief can escape the refusal discipline or fold
+    one decision twice.
+    """
+    carried_ids = set()
+    for entry in decisions:
+        if not isinstance(entry, dict):
+            raise ResolutionError("brief record carries a decision that is not an object")
+        decision_id = entry.get("id")
+        if not isinstance(decision_id, str) or not decision_id:
+            raise ResolutionError(
+                "brief record carries a decision whose id is not a non-empty string"
+            )
+        if not isinstance(entry.get("item"), str) or not isinstance(
+            entry.get("question"), str
+        ):
+            raise ResolutionError(
+                "brief record carries decision "
+                + decision_id
+                + " without a string item and question"
+            )
+        if decision_id in carried_ids:
+            raise ResolutionError(
+                "brief record carries decision " + decision_id + " twice"
+            )
+        carried_ids.add(decision_id)
+    return carried_ids
+
+
 def apply_resolutions(record, resolutions):
     """Fold recorded verdicts into a brief record and return the resolved record.
 
@@ -115,15 +150,14 @@ def apply_resolutions(record, resolutions):
     produces no record and leaves the brief record exactly as it was.
     The run record is carried across untouched, and the outcome lands
     alongside it under the resolved list and the decision counts block.
+    The returned record is a deep copy, so it shares no mutable state
+    with the record it was resolved from.
     """
     decisions = record.get("decisions") if isinstance(record, dict) else None
     if not isinstance(decisions, list):
         raise ResolutionError("brief record carries no decisions list")
-    carried_ids = {
-        entry.get("id")
-        for entry in decisions
-        if isinstance(entry, dict) and isinstance(entry.get("id"), str)
-    }
+    carried_ids = _check_brief_decisions(decisions)
+    decisions = copy.deepcopy(decisions)
     verdicts = {}
     seen_ids = set()
     for entry in resolutions:
@@ -143,7 +177,7 @@ def apply_resolutions(record, resolutions):
         else:
             queued.append(entry)
 
-    result = dict(record)
+    result = copy.deepcopy(record)
     result["decisions"] = queued
     result["resolved"] = resolved
     result["decision_counts"] = {
