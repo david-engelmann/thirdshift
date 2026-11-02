@@ -65,5 +65,14 @@ def brief_markdown(record):
     lines.append("- workers " + str(stock["workers"]))
     lines.append("- stocked at start " + str(stock["stocked_at_start"]))
     lines.append("- stockouts recorded " + str(stock["stockouts_recorded"]))
+    if "window" in record:
+        lines.append("")
+        lines.append("## Window")
+        lines.append("")
+        window = record["window"]
+        lines.append("- window seconds " + str(window["window_seconds"]))
+        lines.append("- elapsed seconds " + str(window["elapsed_seconds"]))
+        lines.append("- started " + str(window["started"]))
+        lines.append("- unstarted " + str(window["unstarted"]))
     lines.append("")
     return "\n".join(lines)
