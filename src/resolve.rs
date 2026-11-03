@@ -9,16 +9,9 @@ use crate::reading::read_json_file;
 pub const VERDICTS: [&str; 2] = ["approve", "reject"];
 
 /// A resolutions file or brief record could not be read as recorded.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[error("{0}")]
 pub struct ResolutionError(pub String);
-
-impl std::fmt::Display for ResolutionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for ResolutionError {}
 
 fn refusal(message: String) -> ResolutionError {
     ResolutionError(message)

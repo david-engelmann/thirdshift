@@ -8,47 +8,32 @@ use crate::clock::Clock;
 use crate::pyjson::Value;
 
 /// The ways a queue operation can be refused, named after the
-/// exceptions the Python implementation raised.
-#[derive(Debug, Clone, PartialEq)]
+/// exceptions the Python implementation raised. Every variant
+/// prints as the message it carries.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum QueueError {
     /// A worker asked for work and the queue held none. A recorded defect.
+    #[error("{0}")]
     Stockout(String),
     /// A second claim was attempted on an item under a live claim, or
     /// a completion arrived from the wrong worker or after the lease.
+    #[error("{0}")]
     ClaimConflict(String),
     /// An item identifier was enqueued twice.
+    #[error("{0}")]
     DuplicateItem(String),
     /// A lease of zero or negative seconds, refused before any state
     /// changes. Carries the full error message.
+    #[error("{0}")]
     InvalidLease(String),
 }
-
-impl std::fmt::Display for QueueError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            QueueError::Stockout(name) => f.write_str(name),
-            QueueError::ClaimConflict(name) => f.write_str(name),
-            QueueError::DuplicateItem(name) => f.write_str(name),
-            QueueError::InvalidLease(message) => f.write_str(message),
-        }
-    }
-}
-
-impl std::error::Error for QueueError {}
 
 /// A validation failure in the runner, carrying its message. Mirrors
 /// the ValueError the Python runner raises for a bad window and for
 /// a non-empty backlog with no workers.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[error("{0}")]
 pub struct ValueError(pub String);
-
-impl std::fmt::Display for ValueError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for ValueError {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {

@@ -90,22 +90,13 @@ fn validate_window(window: Option<WindowValue>) -> Result<Option<f64>, ValueErro
 }
 
 /// The ways a run can be refused, named after the Python exceptions.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum RunError {
+    #[error("{0}")]
     Value(ValueError),
+    #[error("{0}")]
     Queue(QueueError),
 }
-
-impl std::fmt::Display for RunError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RunError::Value(error) => write!(f, "{}", error),
-            RunError::Queue(error) => write!(f, "{}", error),
-        }
-    }
-}
-
-impl std::error::Error for RunError {}
 
 impl From<ValueError> for RunError {
     fn from(error: ValueError) -> RunError {
@@ -120,16 +111,9 @@ impl From<QueueError> for RunError {
 }
 
 /// A backlog file could not be read as a backlog at all.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[error("{0}")]
 pub struct BacklogError(pub String);
-
-impl std::fmt::Display for BacklogError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for BacklogError {}
 
 /// Stub worker behaviour, fixed by task kind so runs are reproducible.
 ///

@@ -654,7 +654,8 @@ impl fmt::Display for Value {
 
 /// A parse failure. The ladder names the defect itself, so the
 /// reader reports no message of its own.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("the text does not parse as a JSON document")]
 pub struct ParseError;
 
 struct Parser<'a> {
@@ -926,30 +927,154 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// Runs of Unicode decimal digit characters, as the first and
+/// last codepoint of each run and the digit value of its first
+/// character. Python float() and the \d of a Python text pattern
+/// accept every decimal digit, not only the ASCII ten, so the
+/// crate carries the set (Unicode 15.0, 680 digits in 68 runs of
+/// ten) rather than an ASCII approximation of it.
+const DECIMAL_DIGIT_RUNS: &[(u32, u32, u32)] = &[
+    (0x30, 0x39, 0),
+    (0x660, 0x669, 0),
+    (0x6F0, 0x6F9, 0),
+    (0x7C0, 0x7C9, 0),
+    (0x966, 0x96F, 0),
+    (0x9E6, 0x9EF, 0),
+    (0xA66, 0xA6F, 0),
+    (0xAE6, 0xAEF, 0),
+    (0xB66, 0xB6F, 0),
+    (0xBE6, 0xBEF, 0),
+    (0xC66, 0xC6F, 0),
+    (0xCE6, 0xCEF, 0),
+    (0xD66, 0xD6F, 0),
+    (0xDE6, 0xDEF, 0),
+    (0xE50, 0xE59, 0),
+    (0xED0, 0xED9, 0),
+    (0xF20, 0xF29, 0),
+    (0x1040, 0x1049, 0),
+    (0x1090, 0x1099, 0),
+    (0x17E0, 0x17E9, 0),
+    (0x1810, 0x1819, 0),
+    (0x1946, 0x194F, 0),
+    (0x19D0, 0x19D9, 0),
+    (0x1A80, 0x1A89, 0),
+    (0x1A90, 0x1A99, 0),
+    (0x1B50, 0x1B59, 0),
+    (0x1BB0, 0x1BB9, 0),
+    (0x1C40, 0x1C49, 0),
+    (0x1C50, 0x1C59, 0),
+    (0xA620, 0xA629, 0),
+    (0xA8D0, 0xA8D9, 0),
+    (0xA900, 0xA909, 0),
+    (0xA9D0, 0xA9D9, 0),
+    (0xA9F0, 0xA9F9, 0),
+    (0xAA50, 0xAA59, 0),
+    (0xABF0, 0xABF9, 0),
+    (0xFF10, 0xFF19, 0),
+    (0x104A0, 0x104A9, 0),
+    (0x10D30, 0x10D39, 0),
+    (0x11066, 0x1106F, 0),
+    (0x110F0, 0x110F9, 0),
+    (0x11136, 0x1113F, 0),
+    (0x111D0, 0x111D9, 0),
+    (0x112F0, 0x112F9, 0),
+    (0x11450, 0x11459, 0),
+    (0x114D0, 0x114D9, 0),
+    (0x11650, 0x11659, 0),
+    (0x116C0, 0x116C9, 0),
+    (0x11730, 0x11739, 0),
+    (0x118E0, 0x118E9, 0),
+    (0x11950, 0x11959, 0),
+    (0x11C50, 0x11C59, 0),
+    (0x11D50, 0x11D59, 0),
+    (0x11DA0, 0x11DA9, 0),
+    (0x11F50, 0x11F59, 0),
+    (0x16A60, 0x16A69, 0),
+    (0x16AC0, 0x16AC9, 0),
+    (0x16B50, 0x16B59, 0),
+    (0x1D7CE, 0x1D7D7, 0),
+    (0x1D7D8, 0x1D7E1, 0),
+    (0x1D7E2, 0x1D7EB, 0),
+    (0x1D7EC, 0x1D7F5, 0),
+    (0x1D7F6, 0x1D7FF, 0),
+    (0x1E140, 0x1E149, 0),
+    (0x1E2F0, 0x1E2F9, 0),
+    (0x1E4F0, 0x1E4F9, 0),
+    (0x1E950, 0x1E959, 0),
+    (0x1FBF0, 0x1FBF9, 0),
+];
+
+/// The digit value of a Unicode decimal digit, or None for any
+/// other character. This is the digit set of Python float() and
+/// of \d in a Python text pattern.
+pub fn decimal_digit_value(ch: char) -> Option<u32> {
+    let point = ch as u32;
+    for &(first, last, base) in DECIMAL_DIGIT_RUNS {
+        if point < first {
+            return None;
+        }
+        if point <= last {
+            return Some(base + (point - first));
+        }
+    }
+    None
+}
+
+/// Whether Python float() trims this character from the ends of
+/// its input. The set is the one probed against the runtime. The
+/// file separator characters U+001C to U+001F are whitespace to
+/// str.isspace but are not trimmed by float(), so they are absent.
+fn py_float_whitespace(ch: char) -> bool {
+    matches!(
+        ch,
+        ' ' | '\t'
+            | '\n'
+            | '\r'
+            | '\u{0b}'
+            | '\u{0c}'
+            | '\u{85}'
+            | '\u{a0}'
+            | '\u{1680}'
+            | '\u{2000}'..='\u{200a}'
+            | '\u{2028}'
+            | '\u{2029}'
+            | '\u{202f}'
+            | '\u{205f}'
+            | '\u{3000}'
+    )
+}
+
 /// Parse the text Python float() accepts into a float.
 ///
-/// Python float() trims surrounding whitespace, accepts the words
-/// inf, infinity, and nan in any case with an optional sign, and
+/// Python float() trims surrounding whitespace from the set
+/// py_float_whitespace names, accepts the words inf, infinity,
+/// and nan in any ASCII case with an optional sign, accepts any
+/// Unicode decimal digit in the mantissa and the exponent, and
 /// accepts single underscores between digits. Rust float parsing
-/// accepts the words but neither the trimming nor the underscores,
-/// so both are normalized here before the value is read.
+/// accepts the words but neither the trimming, the underscores,
+/// nor the digit set, so all three are normalized here before
+/// the value is read.
 pub fn py_float_parse(raw: &str) -> Option<f64> {
-    let trimmed = raw.trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\r' | '\u{0b}' | '\u{0c}'));
+    let trimmed = raw.trim_matches(py_float_whitespace);
     if trimmed.is_empty() {
         return None;
     }
-    // Underscores are legal only between two digits. Removing a
-    // legal one never changes the value, and any other placement is
-    // refused here rather than passed through.
+    // Underscores are legal only between two digits, and every
+    // digit is rewritten to its ASCII form. Removing a legal
+    // underscore never changes the value, and any other placement
+    // is refused here rather than passed through.
     let chars: Vec<char> = trimmed.chars().collect();
     let mut cleaned = String::new();
     for (index, ch) in chars.iter().enumerate() {
         if *ch == '_' {
-            let before = index > 0 && chars[index - 1].is_ascii_digit();
-            let after = index + 1 < chars.len() && chars[index + 1].is_ascii_digit();
+            let before = index > 0 && decimal_digit_value(chars[index - 1]).is_some();
+            let after =
+                index + 1 < chars.len() && decimal_digit_value(chars[index + 1]).is_some();
             if !before || !after {
                 return None;
             }
+        } else if let Some(value) = decimal_digit_value(*ch) {
+            cleaned.push(char::from(b'0' + value as u8));
         } else {
             cleaned.push(*ch);
         }

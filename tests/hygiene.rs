@@ -1,5 +1,6 @@
-//! Pins for TS-10 as the port restates it, a crate that depends on
-//! nothing outside the standard library, and synthetic fixtures only.
+//! Pins for the crate's dependency list as the tool choice
+//! ruling restates it, the adopted tool crates and nothing else,
+//! and synthetic fixtures only.
 //!
 //! The marker patterns are assembled from pieces in this file, so
 //! the raw text of the file never carries a full marker itself, the
@@ -35,16 +36,21 @@ fn dependency_names(manifest: &str) -> BTreeSet<String> {
 }
 
 #[test]
-fn the_crate_depends_on_nothing_outside_the_standard_library() {
+fn the_crate_depends_on_the_adopted_tool_crates_only() {
     let manifest = std::fs::read_to_string(root().join("Cargo.toml")).unwrap();
     let names = dependency_names(&manifest);
-    assert!(
-        names.is_empty(),
-        "dependencies found beyond the standard library, {:?}",
-        names
+    assert_eq!(
+        names,
+        BTreeSet::from([
+            "anyhow".to_string(),
+            "clap".to_string(),
+            "sha2".to_string(),
+            "thiserror".to_string(),
+        ]),
+        "the dependency list is the adopted tool crates and nothing else"
     );
     // The extractor itself is pinned against a manifest that does
-    // declare a dependency, so an empty result here is a finding and
+    // declare a dependency, so the result above is a finding and
     // not a broken scan.
     let sample = "[dependencies]\nserde = \"1\"\n";
     assert_eq!(

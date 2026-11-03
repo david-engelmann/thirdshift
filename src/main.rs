@@ -5,46 +5,94 @@
 //!   run      work a backlog file and write the run record as JSON
 //!   brief    work a backlog file and write the morning brief as Markdown and JSON
 //!   resolve  fold a resolutions file into a brief JSON file and print the resolved record
+//!
+//! The argument parsing is clap, adopted under the maintainer's
+//! tool choice ruling. Its functional behaviour matches the
+//! command line the Python implementation ran. The subcommands
+//! and flags are the same, misuse exits with status 2, help exits
+//! with status 0, and unambiguous long flag abbreviations still
+//! execute. Help text and malformed invocation error text are
+//! clap's own forms. The documents the tool emits, the records it
+//! writes, and the one error line discipline for its own refusals
+//! are unchanged. Errors in main ride on anyhow. The library's
+//! error types derive thiserror.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use clap::{Args, Parser, Subcommand};
+
 use thirdshift::brief::{brief_json, brief_markdown};
-use thirdshift::pyjson::{self, Value};
-use thirdshift::resolve::{ResolutionError, apply_resolutions, load_resolutions, read_brief_file};
-use thirdshift::runner::{
-    BacklogError, RunOptions, WindowValue, load_backlog, read_backlog_file, run_backlog,
-};
+use thirdshift::pyjson::{self, Value, decimal_digit_value};
+use thirdshift::resolve::{apply_resolutions, load_resolutions, read_brief_file};
+use thirdshift::runner::{RunOptions, WindowValue, load_backlog, read_backlog_file, run_backlog};
 
-/// A refusal the command line reports as one error line with exit
-/// status 2, from either file surface.
-enum CliError {
-    Backlog(BacklogError),
-    Resolution(ResolutionError),
-    Run(String),
+#[derive(Parser)]
+#[command(subcommand_required = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
 }
 
-impl CliError {
-    fn message(&self) -> String {
-        match self {
-            CliError::Backlog(error) => error.0.clone(),
-            CliError::Resolution(error) => error.0.clone(),
-            CliError::Run(message) => message.clone(),
-        }
-    }
+#[derive(Subcommand)]
+enum Command {
+    /// Append one task to a backlog file.
+    #[command(infer_long_args = true, args_override_self = true, allow_negative_numbers = true)]
+    Enqueue(EnqueueArgs),
+    /// Work a backlog file and write the run record as JSON.
+    #[command(infer_long_args = true, args_override_self = true, allow_negative_numbers = true)]
+    Run(RunArgs),
+    /// Work a backlog file and write the morning brief.
+    #[command(infer_long_args = true, args_override_self = true, allow_negative_numbers = true)]
+    Brief(BriefArgs),
+    /// Fold a resolutions file into a brief JSON file.
+    #[command(infer_long_args = true, args_override_self = true, allow_negative_numbers = true)]
+    Resolve(ResolveArgs),
 }
 
-impl From<BacklogError> for CliError {
-    fn from(error: BacklogError) -> CliError {
-        CliError::Backlog(error)
-    }
+#[derive(Args)]
+struct EnqueueArgs {
+    #[arg(long)]
+    file: String,
+    #[arg(long)]
+    id: String,
+    #[arg(long)]
+    title: String,
+    #[arg(long)]
+    kind: Option<String>,
+    #[arg(long)]
+    question: Option<String>,
 }
 
-impl From<ResolutionError> for CliError {
-    fn from(error: ResolutionError) -> CliError {
-        CliError::Resolution(error)
-    }
+#[derive(Args)]
+struct RunArgs {
+    #[arg(long)]
+    backlog: String,
+    #[arg(long)]
+    result: Option<String>,
+    #[arg(long)]
+    window_seconds: Option<String>,
+}
+
+#[derive(Args)]
+struct BriefArgs {
+    #[arg(long)]
+    backlog: String,
+    #[arg(long)]
+    md: Option<String>,
+    #[arg(long)]
+    json: Option<String>,
+    #[arg(long)]
+    window_seconds: Option<String>,
+}
+
+#[derive(Args)]
+struct ResolveArgs {
+    #[arg(long)]
+    brief: String,
+    #[arg(long)]
+    resolutions: String,
 }
 
 fn print_out(text: &str) {
@@ -54,12 +102,12 @@ fn print_out(text: &str) {
     let _ = lock.flush();
 }
 
-fn write_file(path: &Path, text: &str) -> Result<(), CliError> {
+fn write_file(path: &Path, text: &str) -> anyhow::Result<()> {
     std::fs::write(path, text)
-        .map_err(|error| CliError::Run(format!("{}: {}", path.display(), error)))
+        .map_err(|error| anyhow::anyhow!("{}: {}", path.display(), error))
 }
 
-fn write_tasks(path: &Path, tasks: &[Value]) -> Result<(), CliError> {
+fn write_tasks(path: &Path, tasks: &[Value]) -> anyhow::Result<()> {
     let document = Value::object(vec![(
         "tasks".to_string(),
         Value::List(tasks.to_vec()),
@@ -67,51 +115,44 @@ fn write_tasks(path: &Path, tasks: &[Value]) -> Result<(), CliError> {
     write_file(path, &(pyjson::dumps_indent2(&document) + "\n"))
 }
 
-fn cmd_enqueue(options: &Options) -> Result<i32, CliError> {
-    let file = options.required("file")?;
-    let target = PathBuf::from(file);
+fn cmd_enqueue(args: &EnqueueArgs) -> anyhow::Result<i32> {
+    let target = PathBuf::from(&args.file);
     let mut tasks = if target.exists() {
         read_backlog_file(&target)?
     } else {
         Vec::new()
     };
-    let id = options.required("id")?;
-    let duplicate = tasks.iter().any(|task| {
-        task.is_object()
-            && task.get("id") == Some(&Value::Str(id.to_string()))
-    });
+    let duplicate = tasks
+        .iter()
+        .any(|task| task.is_object() && task.get("id") == Some(&Value::Str(args.id.clone())));
     if duplicate {
-        eprintln!("duplicate id {}", id);
+        eprintln!("duplicate id {}", args.id);
         return Ok(2);
     }
     let task = Value::object(vec![
-        ("id".to_string(), Value::Str(id.to_string())),
-        (
-            "title".to_string(),
-            Value::Str(options.required("title")?.to_string()),
-        ),
+        ("id".to_string(), Value::Str(args.id.clone())),
+        ("title".to_string(), Value::Str(args.title.clone())),
         (
             "kind".to_string(),
-            Value::Str(options.get("kind").unwrap_or("work").to_string()),
+            Value::Str(args.kind.clone().unwrap_or_else(|| "work".to_string())),
         ),
         (
             "question".to_string(),
-            Value::Str(options.get("question").unwrap_or("").to_string()),
+            Value::Str(args.question.clone().unwrap_or_default()),
         ),
     ]);
     tasks.push(task);
     write_tasks(&target, &tasks)?;
-    println!("enqueued {}", id);
+    println!("enqueued {}", args.id);
     Ok(0)
 }
 
 /// Turn the window option text into a number of seconds, or None.
 ///
 /// A bad window follows the usual error discipline of the tool, so
-/// it raises BacklogError and the caller prints one error line and
-/// exits with status 2 rather than showing an argument parsing
-/// traceback.
-fn window_value(raw: Option<&str>) -> Result<Option<WindowValue>, CliError> {
+/// it is reported as one error line with exit status 2 rather than
+/// as an argument parsing failure.
+fn window_value(raw: Option<&str>) -> anyhow::Result<Option<WindowValue>> {
     let raw = match raw {
         None => return Ok(None),
         Some(raw) => raw,
@@ -119,139 +160,68 @@ fn window_value(raw: Option<&str>) -> Result<Option<WindowValue>, CliError> {
     let value = match pyjson::py_float_parse(raw) {
         Some(value) => value,
         None => {
-            return Err(BacklogError(format!(
+            return Err(anyhow::anyhow!(
                 "window seconds is not a number, {}",
                 raw
             ))
-            .into())
         }
     };
     if !value.is_finite() || value < 0.0 {
-        return Err(BacklogError(format!(
+        return Err(anyhow::anyhow!(
             "window seconds must be a non-negative number, {}",
             raw
-        ))
-        .into());
+        ));
     }
     Ok(Some(WindowValue::Float(value)))
 }
 
-fn run_record(options: &Options) -> Result<Value, CliError> {
-    let backlog = load_backlog(Path::new(options.required("backlog")?))?;
-    let window = window_value(options.get("window-seconds"))?;
+fn run_record(backlog_path: &str, window_raw: Option<&str>) -> anyhow::Result<Value> {
+    let backlog = load_backlog(Path::new(backlog_path))?;
+    let window = window_value(window_raw)?;
     let mut run_options = RunOptions::default();
     run_options.window = window;
-    run_backlog(&backlog, run_options)
-        .map_err(|error| CliError::Run(error.to_string()))
+    Ok(run_backlog(&backlog, run_options)?)
 }
 
-fn cmd_run(options: &Options) -> Result<i32, CliError> {
-    let record = run_record(options)?;
+fn cmd_run(args: &RunArgs) -> anyhow::Result<i32> {
+    let record = run_record(&args.backlog, args.window_seconds.as_deref())?;
     let text = pyjson::dumps_indent2(&record) + "\n";
-    if let Some(result) = options.get("result") {
+    if let Some(result) = &args.result {
         write_file(Path::new(result), &text)?;
     }
     print_out(&text);
     Ok(0)
 }
 
-fn cmd_brief(options: &Options) -> Result<i32, CliError> {
-    let record = run_record(options)?;
-    let md = options.get("md");
-    let json = options.get("json");
-    if let Some(md) = md {
+fn cmd_brief(args: &BriefArgs) -> anyhow::Result<i32> {
+    let record = run_record(&args.backlog, args.window_seconds.as_deref())?;
+    if let Some(md) = &args.md {
         write_file(Path::new(md), &brief_markdown(&record))?;
     }
-    if let Some(json) = json {
+    if let Some(json) = &args.json {
         write_file(Path::new(json), &brief_json(&record))?;
     }
-    if md.is_none() && json.is_none() {
+    if args.md.is_none() && args.json.is_none() {
         print_out(&brief_markdown(&record));
     }
     Ok(0)
 }
 
-fn cmd_resolve(options: &Options) -> Result<i32, CliError> {
-    let record = read_brief_file(Path::new(options.required("brief")?))?;
-    let resolutions = load_resolutions(Path::new(options.required("resolutions")?))?;
+fn cmd_resolve(args: &ResolveArgs) -> anyhow::Result<i32> {
+    let record = read_brief_file(Path::new(&args.brief))?;
+    let resolutions = load_resolutions(Path::new(&args.resolutions))?;
     let resolved = apply_resolutions(&record, &resolutions)?;
     print_out(&(pyjson::dumps_indent2(&resolved) + "\n"));
     Ok(0)
 }
 
-/// The parsed flags of one subcommand.
-struct Options {
-    values: Vec<(String, String)>,
-}
-
-impl Options {
-    fn get(&self, name: &str) -> Option<&str> {
-        self.values
-            .iter()
-            .rev()
-            .find(|(key, _)| key == name)
-            .map(|(_, value)| value.as_str())
-    }
-
-    fn required(&self, name: &str) -> Result<&str, CliError> {
-        self.get(name)
-            .ok_or_else(|| CliError::Run(format!("missing required flag --{}", name)))
-    }
-}
-
-fn usage_error() -> i32 {
-    eprintln!("usage: thirdshift {{enqueue,run,brief,resolve}} ...");
-    2
-}
-
-/// Parse the flag tokens of one subcommand against its known flags.
-/// A token in the equals form carries its value with it, and any
-/// other flag takes the next token as its value, as argparse does.
-fn parse_options(
-    tokens: &[String],
-    known: &[&str],
-    required: &[&str],
-) -> Result<Options, i32> {
-    let mut values: Vec<(String, String)> = Vec::new();
-    let mut index = 0;
-    while index < tokens.len() {
-        let token = &tokens[index];
-        let Some(flag) = token.strip_prefix("--") else {
-            return Err(usage_error());
-        };
-        let (name, inline) = match flag.split_once('=') {
-            Some((name, value)) => (name.to_string(), Some(value.to_string())),
-            None => (flag.to_string(), None),
-        };
-        if !known.contains(&name.as_str()) {
-            return Err(usage_error());
-        }
-        let value = match inline {
-            Some(value) => value,
-            None => {
-                index += 1;
-                match tokens.get(index) {
-                    Some(value) => value.clone(),
-                    None => return Err(usage_error()),
-                }
-            }
-        };
-        values.push((name, value));
-        index += 1;
-    }
-    let options = Options { values };
-    for name in required {
-        if options.get(name).is_none() {
-            return Err(usage_error());
-        }
-    }
-    Ok(options)
-}
-
-/// Whether a token after its dash reads as a number, in the pattern
-/// the Python CLI joins onto the window flag. A digit, a point and a
-/// digit, or the whole rest reading as nan, inf, or infinity in any
-/// case.
+/// Whether a token after its dash reads as a number, in the
+/// pattern the Python CLI joins onto the window flag. A decimal
+/// digit, a point and a digit, or the whole rest reading as nan,
+/// inf, or infinity in any case. The digit set is the Unicode
+/// decimal set of a Python text pattern, and the case rule is
+/// the pattern's, under which the letter i also matches its
+/// dotted and dotless forms.
 fn window_token_is_value(token: &str) -> bool {
     let Some(rest) = token.strip_prefix('-') else {
         return false;
@@ -260,24 +230,47 @@ fn window_token_is_value(token: &str) -> bool {
     let Some(first) = chars.next() else {
         return false;
     };
-    if first.is_ascii_digit() {
+    if decimal_digit_value(first).is_some() {
         return true;
     }
-    if first == '.' && chars.next().map_or(false, |c| c.is_ascii_digit()) {
+    if first == '.' && chars.next().is_some_and(|c| decimal_digit_value(c).is_some()) {
         return true;
     }
-    let lower = rest.to_lowercase();
-    lower == "nan" || lower == "inf" || lower == "infinity"
+    join_word_matches(rest, "nan")
+        || join_word_matches(rest, "inf")
+        || join_word_matches(rest, "infinity")
+}
+
+/// Whether the text reads as the word under the case rule of a
+/// Python ignore case pattern.
+fn join_word_matches(text: &str, word: &str) -> bool {
+    let mut text_chars = text.chars();
+    for pattern in word.chars() {
+        let Some(ch) = text_chars.next() else {
+            return false;
+        };
+        let matches = if pattern == 'i' {
+            matches!(ch, 'i' | 'I' | '\u{130}' | '\u{131}')
+        } else {
+            ch == pattern || ch == pattern.to_ascii_uppercase()
+        };
+        if !matches {
+            return false;
+        }
+    }
+    text_chars.next().is_none()
 }
 
 /// Join a dash-prefixed window value onto its flag before parsing.
 ///
-/// Argparse treats a token that starts with a dash as an option, so
-/// a window value written in two tokens (-inf, -nan, -2.5) never
-/// reaches the validator and the refusal comes out as a usage block
-/// instead of the one error line TS-32 requires. A token that reads
-/// as a number after its dash is the flag's value, so it is joined
-/// into the equals form here and validated on the usual path.
+/// A value that starts with a dash (-inf, -nan, -2.5) is not a
+/// clap value candidate, so without the join it never reaches the
+/// validator and the refusal comes out as an argument error
+/// instead of the one error line TS-32 requires. A token that
+/// reads as a number after its dash is the flag's value, so it is
+/// joined into the equals form here and validated on the usual
+/// path. The join matches only the flag's full name, so an
+/// abbreviated flag keeps clap's own refusal for such a value.
 fn join_window_value(argv: &[String]) -> Vec<String> {
     let mut joined = Vec::new();
     let mut index = 0;
@@ -297,45 +290,120 @@ fn join_window_value(argv: &[String]) -> Vec<String> {
     joined
 }
 
-fn run_cli(argv: Vec<String>) -> i32 {
-    let argv = join_window_value(&argv);
-    let Some((command, rest)) = argv.split_first() else {
-        return usage_error();
-    };
-    let (known, required): (&[&str], &[&str]) = match command.as_str() {
-        "enqueue" => (
-            &["file", "id", "title", "kind", "question"],
-            &["file", "id", "title"],
-        ),
-        "run" => (&["backlog", "result", "window-seconds"], &["backlog"]),
-        "brief" => (
-            &["backlog", "md", "json", "window-seconds"],
-            &["backlog"],
-        ),
-        "resolve" => (&["brief", "resolutions"], &["brief", "resolutions"]),
-        _ => return usage_error(),
-    };
-    let options = match parse_options(rest, known, required) {
-        Ok(options) => options,
-        Err(code) => return code,
-    };
-    let outcome = match command.as_str() {
-        "enqueue" => cmd_enqueue(&options),
-        "run" => cmd_run(&options),
-        "brief" => cmd_brief(&options),
-        "resolve" => cmd_resolve(&options),
-        _ => unreachable!(),
-    };
-    match outcome {
-        Ok(code) => code,
-        Err(error) => {
-            eprintln!("error - {}", error.message());
-            2
-        }
+/// The value flags of one subcommand, for the negative value
+/// join. Every flag in this command line takes a value.
+fn subcommand_flags(name: &str) -> Option<&'static [&'static str]> {
+    match name {
+        "enqueue" => Some(&["--file", "--id", "--title", "--kind", "--question"]),
+        "run" => Some(&["--backlog", "--result", "--window-seconds"]),
+        "brief" => Some(&["--backlog", "--md", "--json", "--window-seconds"]),
+        "resolve" => Some(&["--brief", "--resolutions"]),
+        _ => None,
     }
 }
 
+/// Whether the token after its dash reads as a negative number
+/// under the argparse pattern, one run of decimal digits, or a
+/// run of digits, a point, and another run. The digit set is the
+/// full Unicode decimal set, as it is in a Python text pattern.
+fn is_negative_number(token: &str) -> bool {
+    let Some(body) = token.strip_prefix('-') else {
+        return false;
+    };
+    let digit = |ch: char| decimal_digit_value(ch).is_some();
+    if !body.is_empty() && body.chars().all(digit) {
+        return true;
+    }
+    match body.split_once('.') {
+        Some((whole, fraction)) => {
+            whole.chars().all(digit)
+                && !fraction.is_empty()
+                && fraction.chars().all(digit)
+        }
+        None => false,
+    }
+}
+
+/// Whether a typed long token names exactly one value flag of
+/// the subcommand, in full or as an unambiguous abbreviation. The
+/// help flag takes no value and never counts, and no flag set
+/// here shares a first letter, so a prefix matches at most one.
+fn names_one_value_flag(flags: &[&str], token: &str) -> bool {
+    if token.contains('=') || !token.starts_with("--") {
+        return false;
+    }
+    flags.iter().filter(|flag| flag.starts_with(token)).count() == 1
+}
+
+/// Join a negative number value onto its flag before parsing.
+///
+/// Argparse reads a token that matches its negative number
+/// pattern as a positional string, so such a token after a flag
+/// is the flag's value, in the full Unicode decimal digit set.
+/// Clap reads only ASCII negative numbers that way, so a value
+/// written with any other decimal digit would be refused as an
+/// unexpected argument and never reach the tool. A token that
+/// reads as a negative number after a value flag is joined into
+/// the equals form here, the same device as the window join.
+fn join_negative_values(argv: &[String]) -> Vec<String> {
+    let mut joined = Vec::new();
+    let mut flags: Option<&[&str]> = None;
+    let mut index = 0;
+    while index < argv.len() {
+        let token = &argv[index];
+        if token == "--" {
+            joined.extend_from_slice(&argv[index..]);
+            break;
+        }
+        match flags {
+            None => {
+                if let Some(found) = subcommand_flags(token) {
+                    flags = Some(found);
+                }
+                joined.push(token.clone());
+                index += 1;
+            }
+            Some(flags) => {
+                if names_one_value_flag(flags, token)
+                    && index + 1 < argv.len()
+                    && is_negative_number(&argv[index + 1])
+                {
+                    joined.push(format!("{}={}", token, argv[index + 1]));
+                    index += 2;
+                } else {
+                    joined.push(token.clone());
+                    index += 1;
+                }
+            }
+        }
+    }
+    joined
+}
+
 fn main() -> ExitCode {
-    let argv: Vec<String> = std::env::args().skip(1).collect();
-    ExitCode::from(run_cli(argv) as u8)
+    let mut args = std::env::args();
+    let program = args.next().unwrap_or_else(|| "thirdshift".to_string());
+    let rest: Vec<String> = args.collect();
+    let joined = join_negative_values(&join_window_value(&rest));
+    let cli = match Cli::try_parse_from(std::iter::once(program).chain(joined)) {
+        Ok(cli) => cli,
+        Err(error) => {
+            let code = error.exit_code();
+            let _ = error.print();
+            return ExitCode::from(code as u8);
+        }
+    };
+    let outcome = match &cli.command {
+        Command::Enqueue(args) => cmd_enqueue(args),
+        Command::Run(args) => cmd_run(args),
+        Command::Brief(args) => cmd_brief(args),
+        Command::Resolve(args) => cmd_resolve(args),
+    };
+    match outcome {
+        Ok(code) => ExitCode::from(code as u8),
+        Err(error) => {
+            eprintln!("error - {}", error);
+            ExitCode::from(2)
+        }
+    }
 }
