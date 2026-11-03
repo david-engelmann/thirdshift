@@ -19,9 +19,10 @@
 //! clap's own forms. The documents the tool emits, the records it
 //! writes, and the one error line discipline for its own refusals
 //! are unchanged. A write that fails is reported in the same one
-//! error line form and exits with status 1, the status the Python
-//! tool's uncaught write failure carried. Errors in main ride on
-//! anyhow. The library's error types derive thiserror.
+//! error line form, at status 1 where the Python tool lets the
+//! failure escape uncaught and at status 120 where a standard
+//! output failure surfaces only at its exit flush. Errors in
+//! main ride on anyhow. The library's error types derive thiserror.
 
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
@@ -34,14 +35,15 @@ use thirdshift::brief::{brief_json, brief_markdown};
 use thirdshift::pyjson::{self, Value, decimal_digit_value};
 use thirdshift::reading::ReadError;
 use thirdshift::resolve::{
-    ResolutionError, apply_resolutions, load_resolutions, read_brief_file,
+    ResolutionError, apply_resolutions, check_brief_decision_entries, load_resolutions,
+    read_brief_file, refuse_brief_past_copy_ceiling,
 };
 use thirdshift::runner::{
     BacklogError, RunOptions, WindowValue, load_backlog, read_backlog_file, run_backlog,
 };
 
 #[derive(Parser)]
-#[command(subcommand_required = true, infer_long_args = true)]
+#[command(subcommand_required = true, infer_long_args = true, disable_help_subcommand = true)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -134,13 +136,46 @@ impl std::fmt::Display for FailedWrite {
 
 impl std::error::Error for FailedWrite {}
 
+/// A standard output failure the Python tool discovers only
+/// when its buffer is flushed as the tool exits.
+///
+/// The Python tool holds its printed output in a buffer of
+/// 8192 bytes, so a failure under a smaller output is never
+/// discovered during the run. It surfaces at the shutdown
+/// flush, where the Python tool reports it as an exception
+/// ignored and exits with status 120 and no traceback, so
+/// the binary carries the failure in its own type and main
+/// answers it with status 120 and one error line.
+#[derive(Debug)]
+struct FailedFlush(String);
+
+impl std::fmt::Display for FailedFlush {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for FailedFlush {}
+
+/// The size of the buffer the Python tool holds its printed
+/// output in, in bytes. A printed output of this size or more
+/// is written through as it is printed, so a failure under it
+/// surfaces during the run, and a smaller output is flushed
+/// only as the tool exits.
+const STDOUT_BUFFER_BYTES: usize = 8192;
+
 fn print_out(text: &str) -> anyhow::Result<()> {
     let stdout = std::io::stdout();
     let mut lock = stdout.lock();
     lock.write_all(text.as_bytes())
         .and_then(|()| lock.flush())
         .map_err(|error| {
-            anyhow::Error::new(FailedWrite(format!("stdout: {}", error)))
+            let message = format!("stdout: {}", error);
+            if text.len() < STDOUT_BUFFER_BYTES {
+                anyhow::Error::new(FailedFlush(message))
+            } else {
+                anyhow::Error::new(FailedWrite(message))
+            }
         })
 }
 
@@ -273,7 +308,12 @@ fn cmd_brief(args: &BriefArgs) -> anyhow::Result<i32> {
 fn cmd_resolve(args: &ResolveArgs) -> anyhow::Result<i32> {
     let record = read_brief_file(&args.brief)?;
     let resolutions = load_resolutions(&args.resolutions)?;
+    check_brief_decision_entries(&record)?;
+    if let Some(decisions) = record.get("decisions") {
+        refuse_brief_past_copy_ceiling(&args.brief, decisions)?;
+    }
     let resolved = apply_resolutions(&record, &resolutions)?;
+    refuse_brief_past_copy_ceiling(&args.brief, &record)?;
     print_out(&(pyjson::dumps_indent2(&resolved) + "\n"))?;
     Ok(0)
 }
@@ -281,9 +321,15 @@ fn cmd_resolve(args: &ResolveArgs) -> anyhow::Result<i32> {
 /// The exit status an error from a command answers with.
 ///
 /// A failed write and a document nested past the reader ceiling
-/// escape the Python tool uncaught at status 1. Every other
-/// refusal the tool makes answers with status 2.
+/// escape the Python tool uncaught at status 1. A standard
+/// output failure discovered only at the exit flush answers
+/// with status 120, the status the Python tool exits with
+/// when it reports that failure as an exception ignored.
+/// Every other refusal the tool makes answers with status 2.
 fn refusal_status(error: &anyhow::Error) -> u8 {
+    if error.downcast_ref::<FailedFlush>().is_some() {
+        return 120;
+    }
     let uncaught = error.downcast_ref::<FailedWrite>().is_some()
         || matches!(
             error.downcast_ref::<ReadError<BacklogError>>(),
@@ -423,9 +469,14 @@ fn negative_number_matches(token: &str) -> bool {
 /// Whether a token reads as a positional string rather than as
 /// an option, the classification the Python parser makes when it
 /// meets the token. A bare word and a lone dash are positional.
-/// A dash token is positional when it matches the negative
-/// number pattern or carries a space. A token in the help family
-/// and any long token are options.
+/// A dash token carrying a space reads as positional whatever
+/// its prefix, the one exception being the short help family,
+/// whose letter after the dash decides ahead of the space rule,
+/// as the Python parser refuses a help token with a trailing
+/// word in a value position rather than consuming it. A dash
+/// token without a space is positional only when it matches
+/// the negative number pattern. Any long token without a space
+/// is an option.
 fn reads_as_positional(token: &str) -> bool {
     if token == "--" {
         return false;
@@ -433,13 +484,16 @@ fn reads_as_positional(token: &str) -> bool {
     if !token.starts_with('-') || token == "-" {
         return true;
     }
-    if token.starts_with("--") {
-        return false;
-    }
     if token.chars().nth(1) == Some('h') {
         return false;
     }
-    negative_number_matches(token) || token.contains(' ')
+    if token.contains(' ') {
+        return true;
+    }
+    if token.starts_with("--") {
+        return false;
+    }
+    negative_number_matches(token)
 }
 
 /// One subcommand of the command line, with the long flags the

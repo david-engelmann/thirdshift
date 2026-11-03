@@ -71,35 +71,77 @@ fn parse_brief_record(data: Value) -> Result<Value, ResolutionError> {
     Ok(data)
 }
 
+/// The deepest copy cost a brief record can carry into
+/// resolution. The Python resolver folds the record through
+/// two recursive copies, one of the decisions it carries and
+/// one of the record itself, and each copy spends two frames
+/// on every container along the deepest path it walks and one
+/// frame on a scalar at the foot of that path. The copies
+/// first fail when the cost of the deepest path passes 994,
+/// far below the reader's own ceiling, so a brief past it
+/// fails in the Python tool the uncaught way and the port
+/// refuses it at the same cost with the too deep refusal.
+/// The cost is a frame count and not a container count,
+/// because the two counts part at the edge. List shaped
+/// depth with an empty list at its foot reaches a path of
+/// 497 containers, object shaped depth with a scalar at its
+/// foot reaches a path of 496, and both fail one step past
+/// those reaches at the first cost over the ceiling.
+pub const BRIEF_COPY_MAX_COST: usize = 994;
+
 /// Read a brief JSON file and return the record it carries.
 ///
 /// The file must hold a JSON object with a decisions list, the shape
 /// the brief step writes. Anything else is a load error.
-/// The deepest container path a brief record can carry into
-/// resolution. The Python resolver folds the record through a
-/// recursive copy before it answers, and that copy reaches a
-/// path of 497 containers on list shaped depth, one more than
-/// the reading ceiling of the record would suggest and far
-/// below the reader's own ceiling. A brief past it fails in the
-/// Python tool the uncaught way, so the port refuses it at the
-/// same path with the too deep refusal.
-pub const BRIEF_RECORD_MAX_PATH: usize = 497;
-
 pub fn read_brief_file(path: &Path) -> Result<Value, ReadError<ResolutionError>> {
-    let record = read_json_file(
+    read_json_file(
         path,
         "brief file",
         READER_MAX_DEPTH,
         ResolutionError,
         parse_brief_record,
-    )?;
-    if pyjson::deepest_path(&record) > BRIEF_RECORD_MAX_PATH {
+    )
+}
+
+/// Validate the decisions a brief record carries and return
+/// their ids, ahead of the copies the resolver makes.
+///
+/// The Python resolver validates the brief entries before it
+/// copies anything, so an entry defect answers at status 2
+/// even on a brief deep enough that a copy would fail, and
+/// this check runs where the resolver's own validation runs.
+pub fn check_brief_decision_entries(
+    record: &Value,
+) -> Result<HashSet<String>, ResolutionError> {
+    let decisions = match record.get("decisions") {
+        Some(Value::List(decisions)) => decisions,
+        _ => {
+            return Err(refusal(
+                "brief record carries no decisions list".to_string(),
+            ))
+        }
+    };
+    check_brief_decisions(decisions)
+}
+
+/// Refuse a value whose deepest copy cost passes the ceiling
+/// the Python resolver's recursive copies reach.
+///
+/// The resolver copies the decisions list before it validates
+/// the resolutions and the whole record after, and this
+/// refusal stands where the matching copy stands in that
+/// order, with the too deep refusal of the brief surface.
+pub fn refuse_brief_past_copy_ceiling(
+    path: &Path,
+    value: &Value,
+) -> Result<(), ReadError<ResolutionError>> {
+    if pyjson::deepest_copy_cost(value) > BRIEF_COPY_MAX_COST {
         return Err(ReadError::TooDeep(format!(
             "brief file is nested too deeply, {}",
             path.display()
         )));
     }
-    Ok(record)
+    Ok(())
 }
 
 /// Validate one resolution entry and return its decision, verdict,

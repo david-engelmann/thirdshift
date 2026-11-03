@@ -6,8 +6,8 @@
 //! Python float() accepts, both probed against the runtime.
 
 use thirdshift::pyjson::{
-    ParseError, decimal_digit_value, deepest_path, parse, parse_with_depth, py_float_parse,
-    py_float_repr,
+    ParseError, decimal_digit_value, deepest_copy_cost, deepest_path, parse, parse_with_depth,
+    py_float_parse, py_float_repr,
 };
 
 #[test]
@@ -41,6 +41,25 @@ fn deepest_path_counts_containers_with_the_root_at_one() {
         deepest_path(&parse("{\"a\": [1, {\"b\": [2]}]}").unwrap()),
         4
     );
+}
+
+#[test]
+fn deepest_copy_cost_counts_frames_with_a_scalar_at_one() {
+    // A scalar costs one frame and an empty container two, the
+    // counts the Python copy module spends, so a path that ends
+    // in a scalar costs one more than its container count alone
+    // would give and a path that ends in an empty container
+    // costs exactly twice its count.
+    assert_eq!(deepest_copy_cost(&parse("5").unwrap()), 1);
+    assert_eq!(deepest_copy_cost(&parse("\"x\"").unwrap()), 1);
+    assert_eq!(deepest_copy_cost(&parse("[]").unwrap()), 2);
+    assert_eq!(deepest_copy_cost(&parse("{}").unwrap()), 2);
+    assert_eq!(deepest_copy_cost(&parse("{\"a\": [[1]]}").unwrap()), 7);
+    assert_eq!(
+        deepest_copy_cost(&parse("{\"a\": [1, {\"b\": [2]}]}").unwrap()),
+        9
+    );
+    assert_eq!(deepest_copy_cost(&parse("[[[]]]").unwrap()), 6);
 }
 
 #[test]

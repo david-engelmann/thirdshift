@@ -1012,6 +1012,55 @@ pub fn deepest_path(value: &Value) -> usize {
     deepest
 }
 
+/// The frame cost of the deepest recursive copy of a value,
+/// counted the way the Python tool's copy module spends it.
+///
+/// A scalar costs one frame. A container costs two frames for
+/// its own step into the copy plus the deepest cost among its
+/// children, and an empty container costs two frames. The cost
+/// is a frame count and not a container count, and the two
+/// counts part where a path ends in a scalar, which the copy
+/// still steps into, rather than in an empty container. The
+/// walk is iterative, on explicit stacks, so measuring a
+/// document the reader accepted at its ceiling cannot itself
+/// exhaust the call stack.
+pub fn deepest_copy_cost(value: &Value) -> usize {
+    enum Work<'a> {
+        Visit(&'a Value),
+        Fold(&'a Value),
+    }
+    let mut costs: Vec<usize> = Vec::new();
+    let mut work = vec![Work::Visit(value)];
+    while let Some(item) = work.pop() {
+        match item {
+            Work::Visit(node) => match node {
+                Value::List(items) => {
+                    work.push(Work::Fold(node));
+                    work.extend(items.iter().map(Work::Visit));
+                }
+                Value::Object(entries) => {
+                    work.push(Work::Fold(node));
+                    work.extend(entries.iter().map(|(_, child)| Work::Visit(child)));
+                }
+                _ => costs.push(1),
+            },
+            Work::Fold(node) => {
+                let children = match node {
+                    Value::List(items) => items.len(),
+                    Value::Object(entries) => entries.len(),
+                    _ => 0,
+                };
+                let mut deepest = 0;
+                for _ in 0..children {
+                    deepest = deepest.max(costs.pop().unwrap_or(0));
+                }
+                costs.push(deepest + 2);
+            }
+        }
+    }
+    costs.pop().unwrap_or(0)
+}
+
 /// Runs of Unicode decimal digit characters, as the first and
 /// last codepoint of each run and the digit value of its first
 /// character. Python float() and the \d of a Python text pattern
