@@ -22,6 +22,18 @@ const REFUSAL_KINDS: [&str; 3] = [
     "is not valid JSON, ",
 ];
 
+/// The message of a surface refusal. A ladder refusal is a surface
+/// error by construction here, and a too deep refusal in its place
+/// fails the test that asked for a surface message.
+fn surface_error_text<E: std::error::Error>(error: thirdshift::ReadError<E>) -> String {
+    match error {
+        thirdshift::ReadError::Surface(inner) => inner.to_string(),
+        thirdshift::ReadError::TooDeep(message) => {
+            panic!("a surface refusal was expected, got, {}", message)
+        }
+    }
+}
+
 fn bad_files(dir: &std::path::Path, stem: &str) -> Vec<PathBuf> {
     let missing = dir.join(format!("{}-missing.json", stem));
     let not_utf8 = dir.join(format!("{}-not-utf8.json", stem));
@@ -61,9 +73,9 @@ fn backlog_surface_refusals_at_the_library_surface() {
     let paths = bad_files(&dir, "backlog");
     for (path, message) in paths.iter().zip(expected_messages("backlog file", &paths)) {
         let error = read_backlog_file(path).unwrap_err();
-        assert_eq!(error.0, message);
+        assert_eq!(surface_error_text(error), message);
         let error = load_backlog(path).unwrap_err();
-        assert_eq!(error.0, message);
+        assert_eq!(surface_error_text(error), message);
     }
 }
 
@@ -101,9 +113,9 @@ fn resolutions_surface_refusals_at_the_library_surface() {
         .zip(expected_messages("resolutions file", &paths))
     {
         let error = read_resolutions_file(path).unwrap_err();
-        assert_eq!(error.0, message);
+        assert_eq!(surface_error_text(error), message);
         let error = load_resolutions(path).unwrap_err();
-        assert_eq!(error.0, message);
+        assert_eq!(surface_error_text(error), message);
     }
 }
 
@@ -135,7 +147,7 @@ fn brief_surface_refusals_at_the_library_surface() {
     let paths = bad_files(&dir, "brief");
     for (path, message) in paths.iter().zip(expected_messages("brief file", &paths)) {
         let error = read_brief_file(path).unwrap_err();
-        assert_eq!(error.0, message);
+        assert_eq!(surface_error_text(error), message);
     }
 }
 

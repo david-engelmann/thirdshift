@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use crate::pyjson::Value;
-use crate::reading::read_json_file;
+use crate::pyjson::{self, Value};
+use crate::reading::{READER_MAX_DEPTH, ReadError, read_json_file};
 
 pub const VERDICTS: [&str; 2] = ["approve", "reject"];
 
@@ -36,10 +36,11 @@ pub fn parse_resolutions_entries(data: Value) -> Result<Vec<Value>, ResolutionEr
     ))
 }
 
-pub fn read_resolutions_file(path: &Path) -> Result<Vec<Value>, ResolutionError> {
+pub fn read_resolutions_file(path: &Path) -> Result<Vec<Value>, ReadError<ResolutionError>> {
     read_json_file(
         path,
         "resolutions file",
+        READER_MAX_DEPTH,
         ResolutionError,
         parse_resolutions_entries,
     )
@@ -50,7 +51,7 @@ pub fn read_resolutions_file(path: &Path) -> Result<Vec<Value>, ResolutionError>
 /// Entries come back unvalidated on purpose, parallel to the backlog
 /// reader. apply_resolutions checks every entry before it folds any
 /// of them in, so a defective entry refuses the whole application.
-pub fn load_resolutions(path: &Path) -> Result<Vec<Value>, ResolutionError> {
+pub fn load_resolutions(path: &Path) -> Result<Vec<Value>, ReadError<ResolutionError>> {
     read_resolutions_file(path)
 }
 
@@ -74,8 +75,31 @@ fn parse_brief_record(data: Value) -> Result<Value, ResolutionError> {
 ///
 /// The file must hold a JSON object with a decisions list, the shape
 /// the brief step writes. Anything else is a load error.
-pub fn read_brief_file(path: &Path) -> Result<Value, ResolutionError> {
-    read_json_file(path, "brief file", ResolutionError, parse_brief_record)
+/// The deepest container path a brief record can carry into
+/// resolution. The Python resolver folds the record through a
+/// recursive copy before it answers, and that copy reaches a
+/// path of 497 containers on list shaped depth, one more than
+/// the reading ceiling of the record would suggest and far
+/// below the reader's own ceiling. A brief past it fails in the
+/// Python tool the uncaught way, so the port refuses it at the
+/// same path with the too deep refusal.
+pub const BRIEF_RECORD_MAX_PATH: usize = 497;
+
+pub fn read_brief_file(path: &Path) -> Result<Value, ReadError<ResolutionError>> {
+    let record = read_json_file(
+        path,
+        "brief file",
+        READER_MAX_DEPTH,
+        ResolutionError,
+        parse_brief_record,
+    )?;
+    if pyjson::deepest_path(&record) > BRIEF_RECORD_MAX_PATH {
+        return Err(ReadError::TooDeep(format!(
+            "brief file is nested too deeply, {}",
+            path.display()
+        )));
+    }
+    Ok(record)
 }
 
 /// Validate one resolution entry and return its decision, verdict,

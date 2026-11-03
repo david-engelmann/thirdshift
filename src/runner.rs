@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::clock::{Clock, FakeClock};
 use crate::pyjson::{self, Value};
 use crate::queue::{QueueError, ValueError, WorkQueue};
-use crate::reading::read_json_file;
+use crate::reading::{READER_MAX_DEPTH, ReadError, read_json_file};
 
 pub const LEASE_SECONDS: f64 = 30.0;
 
@@ -171,8 +171,14 @@ pub fn parse_backlog_entries(data: Value) -> Result<Vec<Value>, BacklogError> {
     }
 }
 
-pub fn read_backlog_file(path: &Path) -> Result<Vec<Value>, BacklogError> {
-    read_json_file(path, "backlog file", BacklogError, parse_backlog_entries)
+pub fn read_backlog_file(path: &Path) -> Result<Vec<Value>, ReadError<BacklogError>> {
+    read_json_file(
+        path,
+        "backlog file",
+        READER_MAX_DEPTH,
+        BacklogError,
+        parse_backlog_entries,
+    )
 }
 
 /// Read a backlog file and return its raw task entries.
@@ -180,7 +186,7 @@ pub fn read_backlog_file(path: &Path) -> Result<Vec<Value>, BacklogError> {
 /// Entries come back unvalidated on purpose. The runner records the
 /// entries that cannot become tasks in the run record instead of
 /// failing the whole run over one bad entry.
-pub fn load_backlog(path: &Path) -> Result<Vec<Value>, BacklogError> {
+pub fn load_backlog(path: &Path) -> Result<Vec<Value>, ReadError<BacklogError>> {
     read_backlog_file(path)
 }
 

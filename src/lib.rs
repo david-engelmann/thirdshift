@@ -11,6 +11,7 @@ pub mod runner;
 pub use brief::{brief_json, brief_markdown};
 pub use clock::{Clock, FakeClock, SystemClock};
 pub use pyjson::Value;
+pub use reading::ReadError;
 pub use queue::{Claim, Item, QueueError, ValueError, WorkQueue};
 pub use resolve::{
     ResolutionError, apply_resolutions, load_resolutions, read_brief_file,

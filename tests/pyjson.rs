@@ -5,7 +5,43 @@
 //! parser pins name the whitespace set and the decimal digit set
 //! Python float() accepts, both probed against the runtime.
 
-use thirdshift::pyjson::{decimal_digit_value, py_float_parse, py_float_repr};
+use thirdshift::pyjson::{
+    ParseError, decimal_digit_value, deepest_path, parse, parse_with_depth, py_float_parse,
+    py_float_repr,
+};
+
+#[test]
+fn parse_with_depth_refuses_past_its_ceiling_with_the_too_deep_kind() {
+    assert!(parse_with_depth("[[[1]]]", 3).is_ok());
+    assert!(matches!(
+        parse_with_depth("[[[1]]]", 2),
+        Err(ParseError::TooDeep)
+    ));
+    assert!(matches!(
+        parse_with_depth("{\"a\": {\"a\": 1}}", 1),
+        Err(ParseError::TooDeep)
+    ));
+    // A syntax failure under a generous ceiling stays syntax, so
+    // the two kinds cannot be confused by the ladder.
+    assert!(matches!(
+        parse_with_depth("[1, 2", 9),
+        Err(ParseError::Syntax)
+    ));
+    // Scalars are not containers and never trip the ceiling.
+    assert!(parse_with_depth("5", 0).is_ok());
+    assert!(parse("[[[[5]]]]").is_ok());
+}
+
+#[test]
+fn deepest_path_counts_containers_with_the_root_at_one() {
+    assert_eq!(deepest_path(&parse("5").unwrap()), 0);
+    assert_eq!(deepest_path(&parse("[]").unwrap()), 1);
+    assert_eq!(deepest_path(&parse("{\"a\": [[1]]}").unwrap()), 3);
+    assert_eq!(
+        deepest_path(&parse("{\"a\": [1, {\"b\": [2]}]}").unwrap()),
+        4
+    );
+}
 
 #[test]
 fn float_repr_tie_picks_the_even_last_digit() {

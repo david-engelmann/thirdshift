@@ -133,9 +133,18 @@ fn set_key(entries: &mut Vec<(String, Value)>, key: String, value: Value) {
 }
 
 impl PartialEq for Value {
-    /// Mirrors Python value equality. Objects compare without regard
-    /// to key order, as dicts do. Floats compare as Python floats do,
-    /// so NaN is not equal to itself here either.
+    /// Mirrors Python value equality within one variant. Objects
+    /// compare without regard to key order, as dicts do. Floats
+    /// compare as Python floats do, so NaN is not equal to itself
+    /// here either. Values of different variants never compare
+    /// equal here, where Python equates some of them, an integer
+    /// with the float of the same value or a boolean with the
+    /// integer one. No contracted path compares values across
+    /// variants. The one equality a command consults, a stored
+    /// task id against the text the operator typed, is false
+    /// across types in Python too, and the readers validate the
+    /// identifier and kind fields as strings before any other
+    /// comparison can consult them.
     fn eq(&self, other: &Value) -> bool {
         match (self, other) {
             (Value::Null, Value::Null) => true,
@@ -514,6 +523,12 @@ pub fn py_float_repr(value: f64) -> String {
 
 /// The Python str of a record value, for the Markdown brief. Strings
 /// print as themselves, integers as their digits, floats in repr.
+/// The brief renders only fields the runner built from validated
+/// strings, integer counts, and the float window value through
+/// this function, so the composite fallback at the end cannot
+/// occur in a record the tool builds. A composite value in a
+/// backlog field is recorded as a malformed entry before the
+/// brief is written, on both readers.
 pub fn py_str(value: &Value) -> String {
     match value {
         Value::Str(text) => text.clone(),
@@ -653,29 +668,57 @@ impl fmt::Display for Value {
 }
 
 /// A parse failure. The ladder names the defect itself, so the
-/// reader reports no message of its own.
+/// reader reports no message of its own. The too deep failure is
+/// its own kind because the ladder reports it in its own words
+/// and the command line answers it with a different exit status.
 #[derive(Debug, thiserror::Error)]
-#[error("the text does not parse as a JSON document")]
-pub struct ParseError;
+pub enum ParseError {
+    #[error("the text does not parse as a JSON document")]
+    Syntax,
+    #[error("the document is nested too deeply")]
+    TooDeep,
+}
 
 struct Parser<'a> {
     bytes: &'a [u8],
     text: &'a str,
     pos: usize,
+    depth: usize,
+    max_depth: usize,
 }
+
+/// The deepest container path the readers of this crate accept
+/// before refusing a document as nested too deeply, measured on
+/// the Python reader the port mirrors. The backlog and
+/// resolutions surfaces reach a path of 9994 containers, the
+/// brief surface one less, and a plain read takes the larger.
+pub const MAX_DEPTH: usize = 9994;
 
 /// Read a JSON document the way Python json.loads reads it.
 pub fn parse(text: &str) -> Result<Value, ParseError> {
+    parse_with_depth(text, MAX_DEPTH)
+}
+
+/// Read a JSON document under a ceiling on container nesting.
+///
+/// The Python reader recurses once per container on the deepest
+/// path of a document and stops with an uncaught recursion error
+/// past its ceiling, so the port refuses a document whose deepest
+/// container path passes max_depth with the too deep failure
+/// instead of exhausting its own stack the same way.
+pub fn parse_with_depth(text: &str, max_depth: usize) -> Result<Value, ParseError> {
     let mut parser = Parser {
         bytes: text.as_bytes(),
         text,
         pos: 0,
+        depth: 0,
+        max_depth,
     };
     parser.skip_whitespace();
     let value = parser.read_value()?;
     parser.skip_whitespace();
     if parser.pos != parser.bytes.len() {
-        return Err(ParseError);
+        return Err(ParseError::Syntax);
     }
     Ok(value)
 }
@@ -696,9 +739,9 @@ impl<'a> Parser<'a> {
     }
 
     fn read_value(&mut self) -> Result<Value, ParseError> {
-        match self.peek().ok_or(ParseError)? {
-            b'{' => self.read_object(),
-            b'[' => self.read_list(),
+        match self.peek().ok_or(ParseError::Syntax)? {
+            b'{' => self.read_container(|parser| parser.read_object()),
+            b'[' => self.read_container(|parser| parser.read_list()),
             b'"' => Ok(Value::Str(self.read_string()?)),
             b't' => self.read_keyword("true", Value::Bool(true)),
             b'f' => self.read_keyword("false", Value::Bool(false)),
@@ -714,8 +757,25 @@ impl<'a> Parser<'a> {
                 }
             }
             b'0'..=b'9' => self.read_number(),
-            _ => Err(ParseError),
+            _ => Err(ParseError::Syntax),
         }
+    }
+
+    /// Read one container under the nesting ceiling. The root
+    /// container of a document stands at depth one, so a document
+    /// is refused when a container would stand deeper than the
+    /// ceiling the surface reading it allows.
+    fn read_container(
+        &mut self,
+        read: impl FnOnce(&mut Self) -> Result<Value, ParseError>,
+    ) -> Result<Value, ParseError> {
+        if self.depth >= self.max_depth {
+            return Err(ParseError::TooDeep);
+        }
+        self.depth += 1;
+        let value = read(self);
+        self.depth -= 1;
+        value
     }
 
     fn read_keyword(&mut self, word: &str, value: Value) -> Result<Value, ParseError> {
@@ -723,7 +783,7 @@ impl<'a> Parser<'a> {
             self.pos += word.len();
             Ok(value)
         } else {
-            Err(ParseError)
+            Err(ParseError::Syntax)
         }
     }
 
@@ -732,7 +792,7 @@ impl<'a> Parser<'a> {
         if self.peek() == Some(b'-') {
             self.pos += 1;
         }
-        match self.peek().ok_or(ParseError)? {
+        match self.peek().ok_or(ParseError::Syntax)? {
             b'0' => {
                 self.pos += 1;
             }
@@ -741,14 +801,14 @@ impl<'a> Parser<'a> {
                     self.pos += 1;
                 }
             }
-            _ => return Err(ParseError),
+            _ => return Err(ParseError::Syntax),
         }
         let mut is_float = false;
         if self.peek() == Some(b'.') {
             is_float = true;
             self.pos += 1;
             if !matches!(self.peek(), Some(b'0'..=b'9')) {
-                return Err(ParseError);
+                return Err(ParseError::Syntax);
             }
             while matches!(self.peek(), Some(b'0'..=b'9')) {
                 self.pos += 1;
@@ -761,7 +821,7 @@ impl<'a> Parser<'a> {
                 self.pos += 1;
             }
             if !matches!(self.peek(), Some(b'0'..=b'9')) {
-                return Err(ParseError);
+                return Err(ParseError::Syntax);
             }
             while matches!(self.peek(), Some(b'0'..=b'9')) {
                 self.pos += 1;
@@ -772,7 +832,7 @@ impl<'a> Parser<'a> {
             literal
                 .parse::<f64>()
                 .map(Value::Float)
-                .map_err(|_| ParseError)
+                .map_err(|_| ParseError::Syntax)
         } else if literal == "-0" {
             Ok(Value::Int("0".to_string()))
         } else {
@@ -785,7 +845,7 @@ impl<'a> Parser<'a> {
         self.pos += 1;
         let mut out = String::new();
         loop {
-            let byte = self.peek().ok_or(ParseError)?;
+            let byte = self.peek().ok_or(ParseError::Syntax)?;
             match byte {
                 b'"' => {
                     self.pos += 1;
@@ -793,7 +853,7 @@ impl<'a> Parser<'a> {
                 }
                 b'\\' => {
                     self.pos += 1;
-                    let escaped = self.peek().ok_or(ParseError)?;
+                    let escaped = self.peek().ok_or(ParseError::Syntax)?;
                     self.pos += 1;
                     match escaped {
                         b'"' => out.push('"'),
@@ -821,7 +881,7 @@ impl<'a> Parser<'a> {
                                             + (((unit as u32) - 0xD800) << 10)
                                             + ((low as u32) - 0xDC00);
                                         out.push(
-                                            char::from_u32(combined).ok_or(ParseError)?,
+                                            char::from_u32(combined).ok_or(ParseError::Syntax)?,
                                         );
                                     } else {
                                         self.pos = saved;
@@ -833,18 +893,18 @@ impl<'a> Parser<'a> {
                             } else if (0xDC00..0xE000).contains(&unit) {
                                 out.push('\u{FFFD}');
                             } else {
-                                out.push(char::from_u32(unit as u32).ok_or(ParseError)?);
+                                out.push(char::from_u32(unit as u32).ok_or(ParseError::Syntax)?);
                             }
                         }
-                        _ => return Err(ParseError),
+                        _ => return Err(ParseError::Syntax),
                     }
                 }
-                0x00..=0x1F => return Err(ParseError),
+                0x00..=0x1F => return Err(ParseError::Syntax),
                 _ => {
                     // One full UTF-8 character. The text is a Rust
                     // string, so its bytes are valid UTF-8 throughout.
                     let rest = &self.text[self.pos..];
-                    let ch = rest.chars().next().ok_or(ParseError)?;
+                    let ch = rest.chars().next().ok_or(ParseError::Syntax)?;
                     out.push(ch);
                     self.pos += ch.len_utf8();
                 }
@@ -856,12 +916,12 @@ impl<'a> Parser<'a> {
         let slice = self
             .text
             .get(self.pos..self.pos + 4)
-            .ok_or(ParseError)?;
+            .ok_or(ParseError::Syntax)?;
         if !slice.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err(ParseError);
+            return Err(ParseError::Syntax);
         }
         self.pos += 4;
-        u16::from_str_radix(slice, 16).map_err(|_| ParseError)
+        u16::from_str_radix(slice, 16).map_err(|_| ParseError::Syntax)
     }
 
     fn read_object(&mut self) -> Result<Value, ParseError> {
@@ -875,12 +935,12 @@ impl<'a> Parser<'a> {
         loop {
             self.skip_whitespace();
             if self.peek() != Some(b'"') {
-                return Err(ParseError);
+                return Err(ParseError::Syntax);
             }
             let key = self.read_string()?;
             self.skip_whitespace();
             if self.peek() != Some(b':') {
-                return Err(ParseError);
+                return Err(ParseError::Syntax);
             }
             self.pos += 1;
             self.skip_whitespace();
@@ -895,7 +955,7 @@ impl<'a> Parser<'a> {
                     self.pos += 1;
                     return Ok(Value::Object(entries));
                 }
-                _ => return Err(ParseError),
+                _ => return Err(ParseError::Syntax),
             }
         }
     }
@@ -921,10 +981,35 @@ impl<'a> Parser<'a> {
                     self.pos += 1;
                     return Ok(Value::List(items));
                 }
-                _ => return Err(ParseError),
+                _ => return Err(ParseError::Syntax),
             }
         }
     }
+}
+
+/// The deepest container path in a document, counted with the
+/// root container at depth one and a scalar at depth zero.
+///
+/// The walk is iterative, on an explicit stack, so measuring a
+/// document the reader accepted at its ceiling cannot itself
+/// exhaust the call stack.
+pub fn deepest_path(value: &Value) -> usize {
+    let mut deepest = 0;
+    let mut work: Vec<(&Value, usize)> = vec![(value, 0)];
+    while let Some((item, depth)) = work.pop() {
+        match item {
+            Value::List(items) => {
+                deepest = deepest.max(depth + 1);
+                work.extend(items.iter().map(|child| (child, depth + 1)));
+            }
+            Value::Object(entries) => {
+                deepest = deepest.max(depth + 1);
+                work.extend(entries.iter().map(|(_, child)| (child, depth + 1)));
+            }
+            _ => {}
+        }
+    }
+    deepest
 }
 
 /// Runs of Unicode decimal digit characters, as the first and

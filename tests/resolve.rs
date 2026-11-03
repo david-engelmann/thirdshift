@@ -326,14 +326,19 @@ fn a_brief_with_an_id_less_decision_is_refused() {
 fn the_resolved_record_shares_no_mutable_state_with_its_input() {
     let record = make_record();
     let mut out = apply_resolutions(&record, &[approve_first()]).unwrap();
-    out.get_mut("decisions")
+    // The mutations are the point of the test, so a record that
+    // does not carry the lists fails here instead of passing
+    // through a discarded Option.
+    let decisions = out
+        .get_mut("decisions")
         .and_then(|decisions| decisions.as_list_mut())
-        .map(|decisions| {
-            decisions[0].set("question", Value::Str("mutated".to_string()));
-        });
-    out.get_mut("ran")
+        .expect("the resolved record carries its decisions list");
+    decisions[0].set("question", Value::Str("mutated".to_string()));
+    let ran = out
+        .get_mut("ran")
         .and_then(|ran| ran.as_list_mut())
-        .map(|ran| ran.push(value(r#"{"item": "mutant"}"#)));
+        .expect("the resolved record carries its ran list");
+    ran.push(value(r#"{"item": "mutant"}"#));
     let fresh = make_record();
     assert_eq!(record, fresh);
 }

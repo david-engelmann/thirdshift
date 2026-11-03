@@ -102,7 +102,7 @@ fn cli_brief_with_a_window_matches_the_committed_windowed_example() {
     );
 }
 
-fn refused_window(step: &str, bad: &str) {
+fn refused_window(step: &str, bad: &str, message: &str) {
     let dir = temp_dir("window-cli-refused");
     let backlog_path = dir.join("backlog.json");
     write_json(&backlog_path, &backlog());
@@ -118,59 +118,57 @@ fn refused_window(step: &str, bad: &str) {
     );
     assert_eq!(out.code, 2, "step {} bad {}", step, bad);
     assert_eq!(out.stdout, "");
-    assert_eq!(out.stderr.trim().lines().count(), 1);
-    assert!(!out.stderr.trim().is_empty());
-    assert!(!out.stderr.contains("Traceback"));
+    assert_eq!(out.stderr, format!("error - {}\n", message));
 }
 
 #[test]
 fn cli_run_refuses_a_negative_window() {
-    refused_window("run", "-1");
+    refused_window("run", "-1", "window seconds must be a non-negative number, -1");
 }
 
 #[test]
 fn cli_run_refuses_a_non_numeric_window() {
-    refused_window("run", "soon");
+    refused_window("run", "soon", "window seconds is not a number, soon");
 }
 
 #[test]
 fn cli_brief_refuses_a_negative_window() {
-    refused_window("brief", "-1");
+    refused_window("brief", "-1", "window seconds must be a non-negative number, -1");
 }
 
 #[test]
 fn cli_brief_refuses_a_non_numeric_window() {
-    refused_window("brief", "soon");
+    refused_window("brief", "soon", "window seconds is not a number, soon");
 }
 
 #[test]
 fn cli_run_refuses_a_dash_inf_window() {
-    refused_window("run", "-inf");
+    refused_window("run", "-inf", "window seconds must be a non-negative number, -inf");
 }
 
 #[test]
 fn cli_run_refuses_a_dash_nan_window() {
-    refused_window("run", "-nan");
+    refused_window("run", "-nan", "window seconds must be a non-negative number, -nan");
 }
 
 #[test]
 fn cli_run_refuses_a_dash_negative_window() {
-    refused_window("run", "-2.5");
+    refused_window("run", "-2.5", "window seconds must be a non-negative number, -2.5");
 }
 
 #[test]
 fn cli_brief_refuses_a_dash_inf_window() {
-    refused_window("brief", "-inf");
+    refused_window("brief", "-inf", "window seconds must be a non-negative number, -inf");
 }
 
 #[test]
 fn cli_brief_refuses_a_dash_nan_window() {
-    refused_window("brief", "-nan");
+    refused_window("brief", "-nan", "window seconds must be a non-negative number, -nan");
 }
 
 #[test]
 fn cli_brief_refuses_a_dash_negative_window() {
-    refused_window("brief", "-2.5");
+    refused_window("brief", "-2.5", "window seconds must be a non-negative number, -2.5");
 }
 
 #[test]

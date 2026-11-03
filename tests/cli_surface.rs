@@ -1,18 +1,22 @@
 //! The command line surface corpus.
 //!
-//! Every case in cli_corpus.json began as a capture from the
-//! Python command line of the Round 4 tree, two generation passes
-//! agreeing byte for byte. When the command line moved to clap
-//! under the maintainer's tool choice ruling, the cases split by
-//! their source field. Functional cases, marked oracle, still
-//! carry the Python expectation and the binary must match it byte
-//! for byte. Presentation cases, marked clap, are the help texts
-//! and the malformed invocation refusals, and they carry the
-//! forms captured from the clap binary itself, because that
-//! presentation is clap's by the ruling. Each case runs the
-//! binary in a fresh directory seeded with the committed example
-//! files and compares the exit code, both streams, and the full
-//! final state of the directory.
+//! Every case in cli_corpus.json was classified by construction
+//! against the Python command line of the Round 4 tree and the
+//! port's binary together. A case whose exit code, streams, and
+//! final files all match the Python tool byte for byte is marked
+//! oracle and carries the Python expectation. A case whose exit
+//! code and final files match the Python tool but whose stream
+//! text differs is marked clap and carries the binary's text,
+//! because help text and malformed invocation error text are
+//! clap's presentation by the maintainer's tool choice ruling.
+//! Nothing else can enter the corpus, since a case that differs
+//! in code or files is a functional divergence and stops the
+//! regeneration. The split is pinned below by count, so a case
+//! cannot change sides without the suite failing. Each case runs
+//! the binary in a fresh directory seeded with the committed
+//! example files, plus any files the case itself seeds, and
+//! compares the exit code, both streams, and the full final
+//! state of the directory.
 
 mod common;
 
@@ -22,7 +26,9 @@ use std::path::Path;
 use common::{run_cli, temp_dir};
 use thirdshift::pyjson::{self, Value};
 
-const EXPECTED_CASES: usize = 194;
+const EXPECTED_CASES: usize = 226;
+const EXPECTED_ORACLE_CASES: usize = 68;
+const EXPECTED_CLAP_CASES: usize = 158;
 
 fn string(value: &Value) -> &str {
     value.as_str().expect("corpus text is a string")
@@ -49,8 +55,7 @@ fn snapshot(dir: &Path) -> BTreeMap<String, String> {
     files
 }
 
-#[test]
-fn cli_surface_corpus_matches_the_python_oracle() {
+fn run_cases(source: &str, expected: usize) {
     let corpus = pyjson::parse(include_str!("cli_corpus.json")).expect("corpus parses");
     let setup = object_entries(corpus.get("setup").expect("setup present")).clone();
     let cases = corpus
@@ -60,16 +65,25 @@ fn cli_surface_corpus_matches_the_python_oracle() {
         .expect("cases list")
         .clone();
     assert_eq!(cases.len(), EXPECTED_CASES, "corpus case count");
-    for case in &cases {
+    let selected: Vec<&Value> = cases
+        .iter()
+        .filter(|case| string(case.get("source").expect("source")) == source)
+        .collect();
+    assert_eq!(
+        selected.len(),
+        expected,
+        "corpus {source} case count, a case changed sides"
+    );
+    for case in selected {
         let name = string(case.get("name").expect("name"));
-        let source = string(case.get("source").expect("source"));
-        assert!(
-            source == "oracle" || source == "clap",
-            "case {name}: source is oracle or clap"
-        );
         let dir = temp_dir("corpus");
         for (file, text) in &setup {
             std::fs::write(dir.join(file), string(text)).expect("fixture written");
+        }
+        if let Some(seed) = case.get("seed") {
+            for (file, text) in object_entries(seed) {
+                std::fs::write(dir.join(file), string(text)).expect("case seed written");
+            }
         }
         let argv: Vec<String> = case
             .get("argv")
@@ -104,4 +118,14 @@ fn cli_surface_corpus_matches_the_python_oracle() {
         assert_eq!(snapshot(&dir), want, "case {name}: final files");
         std::fs::remove_dir_all(&dir).ok();
     }
+}
+
+#[test]
+fn oracle_cases_match_the_python_oracle_byte_for_byte() {
+    run_cases("oracle", EXPECTED_ORACLE_CASES);
+}
+
+#[test]
+fn clap_cases_match_the_oracle_on_code_and_files_and_carry_clap_text() {
+    run_cases("clap", EXPECTED_CLAP_CASES);
 }
