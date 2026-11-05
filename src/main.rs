@@ -5,6 +5,7 @@
 //!   run      work a backlog file and write the run record as JSON
 //!   brief    work a backlog file and write the morning brief as Markdown and JSON
 //!   resolve  fold a resolutions file into a brief JSON file and print the resolved record
+//!   carry    join a brief JSON file against its backlog and write the carried backlog
 //!
 //! The argument parsing is clap, adopted under the maintainer's
 //! tool choice ruling. Before clap sees the arguments, a
@@ -32,6 +33,7 @@ use std::process::ExitCode;
 use clap::{Args, CommandFactory, Parser, Subcommand};
 
 use thirdshift::brief::{brief_json, brief_markdown};
+use thirdshift::carry::{CarryError, carry_backlog, read_record_file};
 use thirdshift::pyjson::{self, Value, decimal_digit_value};
 use thirdshift::reading::ReadError;
 use thirdshift::resolve::{
@@ -63,6 +65,9 @@ enum Command {
     /// Fold a resolutions file into a brief JSON file.
     #[command(infer_long_args = true, args_override_self = true)]
     Resolve(ResolveArgs),
+    /// Join a brief JSON file against its backlog and write the carried backlog.
+    #[command(infer_long_args = true, args_override_self = true)]
+    Carry(CarryArgs),
 }
 
 #[derive(Args)]
@@ -107,6 +112,16 @@ struct ResolveArgs {
     brief: PathBuf,
     #[arg(long)]
     resolutions: PathBuf,
+}
+
+#[derive(Args)]
+struct CarryArgs {
+    #[arg(long)]
+    backlog: PathBuf,
+    #[arg(long)]
+    brief: PathBuf,
+    #[arg(long)]
+    out: PathBuf,
 }
 
 /// Decode a data value as the text the Python tool holds it as.
@@ -318,6 +333,16 @@ fn cmd_resolve(args: &ResolveArgs) -> anyhow::Result<i32> {
     Ok(0)
 }
 
+fn cmd_carry(args: &CarryArgs) -> anyhow::Result<i32> {
+    let entries = load_backlog(&args.backlog)?;
+    let record = read_record_file(&args.brief)?;
+    let carried = carry_backlog(&entries, &record)?;
+    write_tasks(&args.out, &carried)?;
+    let document = Value::object(vec![("tasks".to_string(), Value::List(carried))]);
+    print_out(&(pyjson::dumps_indent2(&document) + "\n"))?;
+    Ok(0)
+}
+
 /// The exit status an error from a command answers with.
 ///
 /// A failed write and a document nested past the reader ceiling
@@ -337,6 +362,10 @@ fn refusal_status(error: &anyhow::Error) -> u8 {
         )
         || matches!(
             error.downcast_ref::<ReadError<ResolutionError>>(),
+            Some(ReadError::TooDeep(_))
+        )
+        || matches!(
+            error.downcast_ref::<ReadError<CarryError>>(),
             Some(ReadError::TooDeep(_))
         );
     if uncaught { 1 } else { 2 }
@@ -757,6 +786,7 @@ fn run() -> ExitCode {
         Command::Run(args) => cmd_run(args),
         Command::Brief(args) => cmd_brief(args),
         Command::Resolve(args) => cmd_resolve(args),
+        Command::Carry(args) => cmd_carry(args),
     };
     match outcome {
         Ok(code) => ExitCode::from(code as u8),

@@ -1,0 +1,16 @@
+{
+  "tasks": [
+    {
+      "id": "task-3",
+      "kind": "fail",
+      "question": "",
+      "title": "Rebuild the synthetic index"
+    },
+    {
+      "id": "task-5",
+      "kind": "work",
+      "question": "",
+      "title": "File the synthetic report"
+    }
+  ]
+}
