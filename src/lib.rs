@@ -1,6 +1,7 @@
 //! thirdshift, the fleet that works through the usage window.
 
 pub mod brief;
+pub mod carry;
 pub mod clock;
 pub mod pyjson;
 pub mod queue;
@@ -9,6 +10,7 @@ pub mod resolve;
 pub mod runner;
 
 pub use brief::{brief_json, brief_markdown};
+pub use carry::{CarryError, carry_backlog, read_record_file};
 pub use clock::{Clock, FakeClock, SystemClock};
 pub use pyjson::Value;
 pub use reading::ReadError;
