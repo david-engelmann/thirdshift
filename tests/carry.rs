@@ -327,6 +327,41 @@ fn carry_refuses_an_item_named_twice_in_the_record() {
 }
 
 #[test]
+fn record_shape_refusals_fire_ahead_of_record_duplicates() {
+    let entries = entries();
+    let record = value(
+        r#"{"ran": [
+            {"id": "task-1", "status": "finished"},
+            {"id": "task-1", "status": "finished"},
+            {"id": "task-2", "status": "stalled"}
+        ]}"#,
+    );
+    assert_eq!(
+        refusal(&entries, &record),
+        "brief record carries item task-2, whose status is neither finished nor unfinished"
+    );
+}
+
+#[test]
+fn backlog_naming_refusals_fire_ahead_of_backlog_duplicates() {
+    let entries = value(
+        r#"[
+            {"id": "task-1", "title": "alpha", "kind": "work", "question": ""},
+            {"id": "task-1", "title": "alpha again", "kind": "work", "question": ""},
+            {"title": "nameless", "kind": "work", "question": ""}
+        ]"#,
+    )
+    .as_list()
+    .expect("entries list")
+    .clone();
+    let record = value(r#"{"ran": [{"id": "task-1", "status": "finished"}]}"#);
+    assert_eq!(
+        refusal(&entries, &record),
+        "backlog entry carries no item id"
+    );
+}
+
+#[test]
 fn carry_refuses_a_backlog_entry_with_no_item_id() {
     let record = value(r#"{"ran": []}"#);
     for entries in [

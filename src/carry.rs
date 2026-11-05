@@ -101,26 +101,32 @@ pub fn carry_backlog(entries: &[Value], record: &Value) -> Result<Vec<Value>, Ca
                 )));
             }
         };
-        if record_ids.contains(&item_id) {
+        outcomes.push((item_id, unfinished));
+    }
+    for (item_id, _) in &outcomes {
+        if record_ids.contains(item_id) {
             return Err(refusal(format!(
                 "brief record carries item {} twice",
                 item_id
             )));
         }
         record_ids.insert(item_id.clone());
-        outcomes.push((item_id, unfinished));
     }
 
-    let mut backlog_ids: HashSet<String> = HashSet::new();
+    let mut backlog_id_list: Vec<String> = Vec::new();
     for entry in entries {
         let item_id = match entry.get("id") {
             Some(Value::Str(text)) if !text.is_empty() => text.clone(),
             _ => return Err(refusal("backlog entry carries no item id".to_string())),
         };
-        if backlog_ids.contains(&item_id) {
+        backlog_id_list.push(item_id);
+    }
+    let mut backlog_ids: HashSet<String> = HashSet::new();
+    for item_id in &backlog_id_list {
+        if backlog_ids.contains(item_id) {
             return Err(refusal(format!("backlog carries item {} twice", item_id)));
         }
-        backlog_ids.insert(item_id);
+        backlog_ids.insert(item_id.clone());
     }
 
     for (item_id, _) in &outcomes {
