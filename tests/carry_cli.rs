@@ -299,6 +299,32 @@ fn cli_carry_answers_a_failed_write_at_status_1() {
 }
 
 #[test]
+fn cli_carry_answers_status_1_for_a_brief_nested_past_the_reader_ceiling() {
+    let dir = temp_dir("carry-cli-too-deep");
+    let backlog = dir.join("backlog.json");
+    std::fs::write(&backlog, "{\"tasks\": []}\n").expect("backlog written");
+    let depth = 10_050;
+    let mut text = String::from("{\"ran\": [], \"deep\": ");
+    text.push_str(&"[".repeat(depth));
+    text.push_str(&"]".repeat(depth));
+    text.push_str("}\n");
+    let brief = dir.join("brief.json");
+    std::fs::write(&brief, text).expect("brief written");
+    let out_path = dir.join("carried.json");
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &out_path.display().to_string(),
+    );
+    assert_eq!(out.code, 1, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(out.stderr.trim().lines().count(), 1);
+    assert!(!out.stderr.contains("Traceback"));
+    assert!(!out_path.exists(), "an over-depth brief writes nothing");
+}
+
+#[test]
 fn cli_carry_help_names_the_step_and_its_flags() {
     let dir = temp_dir("carry-cli-help");
     let out = run_cli(&["carry", "--help"], &dir);
