@@ -515,6 +515,74 @@ fn cli_carry_with_the_out_path_naming_the_brief_replaces_it() {
     );
 }
 
+fn refusing_pair(dir: &std::path::Path) -> (PathBuf, PathBuf) {
+    write_pair(
+        dir,
+        &value(
+            r#"{"tasks": [{"id": "task-1", "title": "alpha", "kind": "work", "question": ""}]}"#,
+        ),
+        &value(
+            r#"{"ran": [
+                {"id": "task-1", "status": "finished"},
+                {"id": "task-9", "status": "unfinished"}
+            ]}"#,
+        ),
+    )
+}
+
+#[test]
+fn cli_carry_refusing_with_the_out_path_naming_the_backlog_leaves_it_unchanged() {
+    // TS-55. The join completes before any write, so a join that
+    // refuses with the out path naming the backlog leaves the
+    // backlog file byte unchanged.
+    let dir = temp_dir("carry-cli-refusal-out-is-backlog");
+    let (backlog, brief) = refusing_pair(&dir);
+    let before = std::fs::read_to_string(&backlog).unwrap();
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &backlog.display().to_string(),
+    );
+    assert_eq!(out.code, 2, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(
+        out.stderr,
+        "error - record names item task-9, which the backlog does not carry\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&backlog).unwrap(),
+        before,
+        "the refused carry leaves the backlog file byte unchanged"
+    );
+}
+
+#[test]
+fn cli_carry_refusing_with_the_out_path_naming_the_brief_leaves_it_unchanged() {
+    // TS-55. The same refusal with the out path naming the brief
+    // leaves the brief file byte unchanged.
+    let dir = temp_dir("carry-cli-refusal-out-is-brief");
+    let (backlog, brief) = refusing_pair(&dir);
+    let before = std::fs::read_to_string(&brief).unwrap();
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &brief.display().to_string(),
+    );
+    assert_eq!(out.code, 2, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(
+        out.stderr,
+        "error - record names item task-9, which the backlog does not carry\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&brief).unwrap(),
+        before,
+        "the refused carry leaves the brief file byte unchanged"
+    );
+}
+
 #[test]
 fn cli_carry_help_names_the_step_and_its_flags() {
     let dir = temp_dir("carry-cli-help");
