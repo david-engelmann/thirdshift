@@ -1,4 +1,4 @@
-//! The carry command, TS-42 to TS-47, end to end.
+//! The carry command, TS-42 to TS-47 and TS-54 to TS-55, end to end.
 
 mod common;
 
@@ -322,6 +322,265 @@ fn cli_carry_answers_status_1_for_a_brief_nested_past_the_reader_ceiling() {
     assert_eq!(out.stderr.trim().lines().count(), 1);
     assert!(!out.stderr.contains("Traceback"));
     assert!(!out_path.exists(), "an over-depth brief writes nothing");
+}
+
+fn lists(n: usize) -> String {
+    "[".repeat(n) + &"]".repeat(n)
+}
+
+fn deep_backlog_text(n: usize) -> String {
+    format!(
+        "{{\"tasks\": [{{\"id\": \"deep\", \"title\": {}, \"kind\": \"work\", \"question\": \"\"}}]}}",
+        lists(n)
+    )
+}
+
+#[test]
+fn cli_carry_refuses_a_carried_document_past_the_write_ceiling() {
+    // TS-54. The carried document is the object over the tasks list
+    // over the entry, three containers above the entry's own chain,
+    // so a title chain of 989 nested lists carries at a deepest
+    // path of 992, one past the write ceiling of 991. The reader
+    // ceiling is 9994, so the entry reads without complaint and
+    // only the write refuses, which is what makes the pin bite.
+    let dir = temp_dir("carry-cli-write-ceiling");
+    let backlog = dir.join("backlog.json");
+    std::fs::write(&backlog, deep_backlog_text(989)).expect("backlog written");
+    let brief = dir.join("brief.json");
+    write_json(
+        &brief,
+        &value(r#"{"ran": [{"id": "deep", "status": "unfinished"}]}"#),
+    );
+    let out_path = dir.join("carried.json");
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &out_path.display().to_string(),
+    );
+    assert_eq!(out.code, 1, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(
+        out.stderr,
+        format!(
+            "error - backlog file is nested too deeply, {}\n",
+            out_path.display()
+        )
+    );
+    assert!(
+        !out_path.exists(),
+        "a carry past the write ceiling writes nothing"
+    );
+}
+
+#[test]
+fn cli_carry_past_the_write_ceiling_leaves_a_standing_out_file_byte_unchanged() {
+    // TS-54. The refusal fires before any byte is written, so an
+    // out file that already stands keeps its bytes exactly.
+    let dir = temp_dir("carry-cli-write-ceiling-standing");
+    let backlog = dir.join("backlog.json");
+    std::fs::write(&backlog, deep_backlog_text(989)).expect("backlog written");
+    let brief = dir.join("brief.json");
+    write_json(
+        &brief,
+        &value(r#"{"ran": [{"id": "deep", "status": "unfinished"}]}"#),
+    );
+    let out_path = dir.join("carried.json");
+    std::fs::write(&out_path, "standing bytes\n").expect("out file written");
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &out_path.display().to_string(),
+    );
+    assert_eq!(out.code, 1, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(
+        std::fs::read_to_string(&out_path).unwrap(),
+        "standing bytes\n",
+        "the refused carry leaves the out file byte unchanged"
+    );
+}
+
+#[test]
+fn cli_carry_writes_a_carried_document_at_the_write_ceiling() {
+    // TS-54. A title chain of 988 nested lists puts the carried
+    // document at a deepest path of exactly 991, the ceiling
+    // itself, and the carry writes in the ordinary way.
+    let dir = temp_dir("carry-cli-write-at-ceiling");
+    let backlog = dir.join("backlog.json");
+    std::fs::write(&backlog, deep_backlog_text(988)).expect("backlog written");
+    let brief = dir.join("brief.json");
+    write_json(
+        &brief,
+        &value(r#"{"ran": [{"id": "deep", "status": "unfinished"}]}"#),
+    );
+    let out_path = dir.join("carried.json");
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &out_path.display().to_string(),
+    );
+    assert_eq!(out.code, 0, "stderr {}", out.stderr);
+    let written = std::fs::read_to_string(&out_path).unwrap();
+    assert_eq!(written, out.stdout);
+    let parsed = pyjson::parse(&written).unwrap();
+    assert_eq!(pyjson::deepest_path(&parsed), 991);
+    let tasks = parsed
+        .get("tasks")
+        .and_then(Value::as_list)
+        .expect("tasks list");
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].get("id"), Some(&Value::Str("deep".to_string())));
+}
+
+fn naming_pair(dir: &std::path::Path) -> (PathBuf, PathBuf) {
+    write_pair(
+        dir,
+        &value(
+            r#"{"tasks": [
+                {"id": "task-1", "title": "alpha", "kind": "work", "question": ""},
+                {"id": "task-2", "title": "beta", "kind": "fail", "question": ""}
+            ]}"#,
+        ),
+        &value(
+            r#"{"ran": [
+                {"id": "task-1", "status": "finished"},
+                {"id": "task-2", "status": "unfinished"}
+            ]}"#,
+        ),
+    )
+}
+
+#[test]
+fn cli_carry_with_the_out_path_naming_the_backlog_replaces_it() {
+    // TS-55. Both inputs are read whole and the join completes
+    // before the write, so naming the backlog file as the out
+    // path succeeds and the file then holds the carried backlog.
+    let dir = temp_dir("carry-cli-out-is-backlog");
+    let (backlog, brief) = naming_pair(&dir);
+    let third = dir.join("carried.json");
+    let ordinary = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &third.display().to_string(),
+    );
+    assert_eq!(ordinary.code, 0, "stderr {}", ordinary.stderr);
+    let expected = std::fs::read_to_string(&third).unwrap();
+    let named = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &backlog.display().to_string(),
+    );
+    assert_eq!(named.code, 0, "stderr {}", named.stderr);
+    assert_eq!(named.stdout, expected);
+    assert_eq!(
+        std::fs::read_to_string(&backlog).unwrap(),
+        expected,
+        "the backlog file now holds the carried backlog"
+    );
+}
+
+#[test]
+fn cli_carry_with_the_out_path_naming_the_brief_replaces_it() {
+    // TS-55. Naming the brief file as the out path succeeds the
+    // same way, and the file then holds the carried backlog in
+    // place of the record it held.
+    let dir = temp_dir("carry-cli-out-is-brief");
+    let (backlog, brief) = naming_pair(&dir);
+    let third = dir.join("carried.json");
+    let ordinary = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &third.display().to_string(),
+    );
+    assert_eq!(ordinary.code, 0, "stderr {}", ordinary.stderr);
+    let expected = std::fs::read_to_string(&third).unwrap();
+    let named = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &brief.display().to_string(),
+    );
+    assert_eq!(named.code, 0, "stderr {}", named.stderr);
+    assert_eq!(named.stdout, expected);
+    assert_eq!(
+        std::fs::read_to_string(&brief).unwrap(),
+        expected,
+        "the brief file now holds the carried backlog"
+    );
+}
+
+fn refusing_pair(dir: &std::path::Path) -> (PathBuf, PathBuf) {
+    write_pair(
+        dir,
+        &value(
+            r#"{"tasks": [{"id": "task-1", "title": "alpha", "kind": "work", "question": ""}]}"#,
+        ),
+        &value(
+            r#"{"ran": [
+                {"id": "task-1", "status": "finished"},
+                {"id": "task-9", "status": "unfinished"}
+            ]}"#,
+        ),
+    )
+}
+
+#[test]
+fn cli_carry_refusing_with_the_out_path_naming_the_backlog_leaves_it_unchanged() {
+    // TS-55. The join completes before any write, so a join that
+    // refuses with the out path naming the backlog leaves the
+    // backlog file byte unchanged.
+    let dir = temp_dir("carry-cli-refusal-out-is-backlog");
+    let (backlog, brief) = refusing_pair(&dir);
+    let before = std::fs::read_to_string(&backlog).unwrap();
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &backlog.display().to_string(),
+    );
+    assert_eq!(out.code, 2, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(
+        out.stderr,
+        "error - record names item task-9, which the backlog does not carry\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&backlog).unwrap(),
+        before,
+        "the refused carry leaves the backlog file byte unchanged"
+    );
+}
+
+#[test]
+fn cli_carry_refusing_with_the_out_path_naming_the_brief_leaves_it_unchanged() {
+    // TS-55. The same refusal with the out path naming the brief
+    // leaves the brief file byte unchanged.
+    let dir = temp_dir("carry-cli-refusal-out-is-brief");
+    let (backlog, brief) = refusing_pair(&dir);
+    let before = std::fs::read_to_string(&brief).unwrap();
+    let out = carry(
+        &dir,
+        &backlog.display().to_string(),
+        &brief.display().to_string(),
+        &brief.display().to_string(),
+    );
+    assert_eq!(out.code, 2, "stderr {}", out.stderr);
+    assert_eq!(out.stdout, "");
+    assert_eq!(
+        out.stderr,
+        "error - record names item task-9, which the backlog does not carry\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&brief).unwrap(),
+        before,
+        "the refused carry leaves the brief file byte unchanged"
+    );
 }
 
 #[test]
