@@ -9,9 +9,7 @@ use std::rc::Rc;
 use common::{field, list, temp_dir, value};
 use thirdshift::pyjson::Value;
 use thirdshift::runner::RunError;
-use thirdshift::{
-    load_backlog, run_backlog, FakeClock, Item, RunOptions, WorkQueue,
-};
+use thirdshift::{FakeClock, Item, RunOptions, WorkQueue, load_backlog, run_backlog};
 
 fn item(item_id: &str, title: &str, kind: &str, question: &str) -> Value {
     let mut entry = Item::new(item_id, title);
@@ -142,7 +140,10 @@ fn work_tasks_queue_no_decisions() {
     let entries = vec![item("task-9", "plain", "work", "")];
     let record = run_entries(&entries);
     assert!(list(&record, "decisions").is_empty());
-    assert_eq!(field(&record, "produced"), &value(r#"["completed task-9"]"#));
+    assert_eq!(
+        field(&record, "produced"),
+        &value(r#"["completed task-9"]"#)
+    );
 }
 
 #[test]
@@ -239,7 +240,10 @@ fn a_decision_task_without_a_question_falls_back_to_its_title() {
     let record = run_entries(&entries);
     let decisions = list(&record, "decisions");
     assert_eq!(decisions.len(), 1);
-    assert_eq!(text(&decisions[0], "question"), "Approve the synthetic gate");
+    assert_eq!(
+        text(&decisions[0], "question"),
+        "Approve the synthetic gate"
+    );
 }
 
 #[test]
@@ -268,7 +272,10 @@ fn an_entry_with_only_an_id_still_runs() {
     let entries = vec![value(r#"{"id": "task-7"}"#)];
     let record = run_entries(&entries);
     assert_eq!(field(field(&record, "counts"), "finished"), &Value::uint(1));
-    assert_eq!(field(&record, "produced"), &value(r#"["completed task-7"]"#));
+    assert_eq!(
+        field(&record, "produced"),
+        &value(r#"["completed task-7"]"#)
+    );
 }
 
 #[test]

@@ -70,6 +70,11 @@ pub struct Claim {
     pub expires_at: f64,
 }
 
+/// The shared record a claim observer holds. A test keeps one end
+/// of the cell and reads back every claim the queue made, in the
+/// order the queue made them.
+pub type ClaimObserver = Rc<RefCell<Vec<(String, String)>>>;
+
 /// A stocked queue. The clock is required and always injected by the
 /// caller, so no lease ever reads the wall clock by accident. There
 /// is no way to build a queue without one.
@@ -84,7 +89,7 @@ pub struct WorkQueue {
     /// An observer hook the tests use to remember every claim, the
     /// same evidence a subclass that records claim calls leaves in
     /// the Python suite. Nothing in the library reads it.
-    pub claim_observer: Option<Rc<RefCell<Vec<(String, String)>>>>,
+    pub claim_observer: Option<ClaimObserver>,
 }
 
 impl WorkQueue {
@@ -141,9 +146,7 @@ impl WorkQueue {
     pub fn pending_ids(&self) -> Vec<String> {
         self.order
             .iter()
-            .filter(|item_id| {
-                !self.done.contains_key(*item_id) && !self.claim_is_live(item_id)
-            })
+            .filter(|item_id| !self.done.contains_key(*item_id) && !self.claim_is_live(item_id))
             .cloned()
             .collect()
     }
@@ -203,11 +206,7 @@ impl WorkQueue {
         Ok(claim)
     }
 
-    pub fn claim_next(
-        &mut self,
-        worker_id: &str,
-        lease_seconds: f64,
-    ) -> Result<Claim, QueueError> {
+    pub fn claim_next(&mut self, worker_id: &str, lease_seconds: f64) -> Result<Claim, QueueError> {
         Self::check_lease(lease_seconds)?;
         let pending = self.pending_ids();
         if pending.is_empty() {

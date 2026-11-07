@@ -33,7 +33,7 @@ fn flag(report: &Value, name: &str) -> bool {
 
 #[test]
 fn stock_report_counts_workers_items_and_deficit() {
-    let mut queue = build_queue(&["task-1", "task-2", "task-3"], &["worker-1", "worker-2"]);
+    let queue = build_queue(&["task-1", "task-2", "task-3"], &["worker-1", "worker-2"]);
     let report = queue.stock_report();
     assert_eq!(number(&report, "workers"), 2);
     assert_eq!(number(&report, "stocked"), 3);
@@ -43,10 +43,7 @@ fn stock_report_counts_workers_items_and_deficit() {
 
 #[test]
 fn stock_report_shows_a_deficit_below_the_worker_count() {
-    let mut queue = build_queue(
-        &["task-1"],
-        &["worker-1", "worker-2", "worker-3"],
-    );
+    let queue = build_queue(&["task-1"], &["worker-1", "worker-2", "worker-3"]);
     let report = queue.stock_report();
     assert_eq!(number(&report, "stocked"), 1);
     assert_eq!(number(&report, "deficit"), 2);

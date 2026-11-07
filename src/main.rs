@@ -45,7 +45,12 @@ use thirdshift::runner::{
 };
 
 #[derive(Parser)]
-#[command(subcommand_required = true, infer_long_args = true, disable_help_subcommand = true)]
+#[command(
+    about = "Runs a stocked backlog of agent tasks through a usage window, records what finished and what did not, hands the unfinished items to the next shift, and writes a morning brief of the run.",
+    subcommand_required = true,
+    infer_long_args = true,
+    disable_help_subcommand = true
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -195,9 +200,8 @@ fn print_out(text: &str) -> anyhow::Result<()> {
 }
 
 fn write_file(path: &Path, text: &str) -> anyhow::Result<()> {
-    std::fs::write(path, text).map_err(|error| {
-        anyhow::Error::new(FailedWrite(format!("{}: {}", path.display(), error)))
-    })
+    std::fs::write(path, text)
+        .map_err(|error| anyhow::Error::new(FailedWrite(format!("{}: {}", path.display(), error))))
 }
 
 /// The deepest container path the backlog document an enqueue
@@ -209,10 +213,7 @@ fn write_file(path: &Path, text: &str) -> anyhow::Result<()> {
 const WRITE_MAX_PATH: usize = 991;
 
 fn write_tasks(path: &Path, tasks: &[Value]) -> anyhow::Result<()> {
-    let document = Value::object(vec![(
-        "tasks".to_string(),
-        Value::List(tasks.to_vec()),
-    )]);
+    let document = Value::object(vec![("tasks".to_string(), Value::List(tasks.to_vec()))]);
     if pyjson::deepest_path(&document) > WRITE_MAX_PATH {
         return Err(anyhow::Error::new(FailedWrite(format!(
             "backlog file is nested too deeply, {}",
@@ -272,12 +273,7 @@ fn window_value(raw: Option<&OsStr>) -> anyhow::Result<Option<WindowValue>> {
     };
     let value = match pyjson::py_float_parse(&raw) {
         Some(value) => value,
-        None => {
-            return Err(anyhow::anyhow!(
-                "window seconds is not a number, {}",
-                raw
-            ))
-        }
+        None => return Err(anyhow::anyhow!("window seconds is not a number, {}", raw)),
     };
     if !value.is_finite() || value < 0.0 {
         return Err(anyhow::anyhow!(
@@ -291,8 +287,10 @@ fn window_value(raw: Option<&OsStr>) -> anyhow::Result<Option<WindowValue>> {
 fn run_record(backlog_path: &Path, window_raw: Option<&OsStr>) -> anyhow::Result<Value> {
     let backlog = load_backlog(backlog_path)?;
     let window = window_value(window_raw)?;
-    let mut run_options = RunOptions::default();
-    run_options.window = window;
+    let run_options = RunOptions {
+        window,
+        ..RunOptions::default()
+    };
     Ok(run_backlog(&backlog, run_options)?)
 }
 
@@ -389,7 +387,11 @@ fn window_token_is_value(token: &str) -> bool {
     if decimal_digit_value(first).is_some() {
         return true;
     }
-    if first == '.' && chars.next().is_some_and(|c| decimal_digit_value(c).is_some()) {
+    if first == '.'
+        && chars
+            .next()
+            .is_some_and(|c| decimal_digit_value(c).is_some())
+    {
         return true;
     }
     join_word_matches_dollar(rest, "nan")
@@ -477,9 +479,7 @@ fn is_negative_number(token: &str) -> bool {
     }
     match body.split_once('.') {
         Some((whole, fraction)) => {
-            whole.chars().all(digit)
-                && !fraction.is_empty()
-                && fraction.chars().all(digit)
+            whole.chars().all(digit) && !fraction.is_empty() && fraction.chars().all(digit)
         }
         None => false,
     }
@@ -489,10 +489,7 @@ fn is_negative_number(token: &str) -> bool {
 /// the pattern's end anchor also matches just before one
 /// trailing newline, as a Python text pattern's does.
 fn negative_number_matches(token: &str) -> bool {
-    is_negative_number(token)
-        || token
-            .strip_suffix('\n')
-            .is_some_and(is_negative_number)
+    is_negative_number(token) || token.strip_suffix('\n').is_some_and(is_negative_number)
 }
 
 /// Whether a token reads as a positional string rather than as
@@ -592,10 +589,8 @@ fn help_read(token: &str, longs: &[String]) -> HelpRead {
     if token.starts_with("--") {
         let name = token.split('=').next().unwrap_or(token);
         if name.len() > 2 {
-            let matches: Vec<&String> = longs
-                .iter()
-                .filter(|long| long.starts_with(name))
-                .collect();
+            let matches: Vec<&String> =
+                longs.iter().filter(|long| long.starts_with(name)).collect();
             if matches.len() == 1 && matches[0] == "--help" {
                 if token.contains('=') {
                     return HelpRead::Refuse(OsString::from(token));
@@ -686,9 +681,7 @@ fn preprocess(tokens: &[OsString]) -> Preprocess {
         };
         match help_read(&text, longs) {
             HelpRead::Fire => {
-                return Preprocess::FireHelp(
-                    current.map(|index| specs[index].name.clone()),
-                );
+                return Preprocess::FireHelp(current.map(|index| specs[index].name.clone()));
             }
             HelpRead::Refuse(replacement) => {
                 blocked = true;

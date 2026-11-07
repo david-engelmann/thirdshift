@@ -2,7 +2,7 @@
 name = "thirdshift"
 version = "0.1.0"
 edition = "2024"
-description = "A scheduler that keeps work queued ahead of every worker and leaves a morning brief"
+description = "Runs a stocked backlog of agent tasks through a usage window, records what finished and what did not, hands the unfinished items to the next shift, and writes a morning brief of the run."
 license = "MIT"
 
 [dependencies]
