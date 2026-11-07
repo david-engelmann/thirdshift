@@ -92,10 +92,17 @@ fn the_ci_gate_steps_run_the_full_gate() {
         "the CI gate must run for the merge queue"
     );
     assert!(
+        text.contains("gh-readonly-queue"),
+        "the CI gate must ignore the merge queue branches on push"
+    );
+    assert!(
         text.contains("cargo fmt --check"),
         "the CI gate must check formatting"
     );
-    assert!(text.contains("cargo clippy"), "the CI gate must run clippy");
+    assert!(
+        text.contains("cargo clippy --all-targets -- -D warnings"),
+        "the CI gate must run clippy over all targets with warnings denied"
+    );
     assert!(text.contains("Run CI gate"), "the CI gate step is missing");
     assert!(
         text.contains("cargo test"),
