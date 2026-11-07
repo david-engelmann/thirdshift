@@ -20,6 +20,39 @@ fn cli_run_over_example_backlog_records_all_five_tasks() {
 }
 
 #[test]
+fn cli_run_reads_a_repeated_key_under_its_last_value() {
+    // TS-56 on the run surface. The entry names its kind twice
+    // and the run reads the last value the document carried. With
+    // work first and fail second the item is recorded unfinished,
+    // where reading the first value would record it finished, and
+    // the mirror entry finishes.
+    let dir = temp_dir("e2e-repeated-key");
+    let backlog = dir.join("backlog.json");
+    std::fs::write(
+        &backlog,
+        "{\"tasks\": [{\"id\": \"task-1\", \"title\": \"alpha\", \"kind\": \"work\", \"kind\": \"fail\", \"question\": \"\"}]}\n",
+    )
+    .unwrap();
+    let out = run_cli(&["run", "--backlog", &backlog.display().to_string()], &dir);
+    assert_eq!(out.code, 0, "stderr {}", out.stderr);
+    let record = pyjson::parse(&out.stdout).unwrap();
+    let ran = list(&record, "ran");
+    assert_eq!(ran.len(), 1);
+    assert_eq!(field(&ran[0], "status"), &common::value("\"unfinished\""));
+    std::fs::write(
+        &backlog,
+        "{\"tasks\": [{\"id\": \"task-1\", \"title\": \"alpha\", \"kind\": \"fail\", \"kind\": \"work\", \"question\": \"\"}]}\n",
+    )
+    .unwrap();
+    let out = run_cli(&["run", "--backlog", &backlog.display().to_string()], &dir);
+    assert_eq!(out.code, 0, "stderr {}", out.stderr);
+    let record = pyjson::parse(&out.stdout).unwrap();
+    let ran = list(&record, "ran");
+    assert_eq!(ran.len(), 1);
+    assert_eq!(field(&ran[0], "status"), &common::value("\"finished\""));
+}
+
+#[test]
 fn cli_brief_over_example_backlog_matches_the_committed_example_brief() {
     let root = root();
     let dir = temp_dir("e2e-brief");

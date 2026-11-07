@@ -6,8 +6,8 @@
 //! Python float() accepts, both probed against the runtime.
 
 use thirdshift::pyjson::{
-    ParseError, decimal_digit_value, deepest_copy_cost, deepest_path, parse, parse_with_depth,
-    py_float_parse, py_float_repr,
+    ParseError, Value, decimal_digit_value, deepest_copy_cost, deepest_path, dumps_compact, parse,
+    parse_with_depth, py_float_parse, py_float_repr,
 };
 
 #[test]
@@ -60,6 +60,32 @@ fn deepest_copy_cost_counts_frames_with_a_scalar_at_one() {
         9
     );
     assert_eq!(deepest_copy_cost(&parse("[[[]]]").unwrap()), 6);
+}
+
+#[test]
+fn a_repeated_key_keeps_its_first_position_and_its_last_value() {
+    // TS-56. A Python dict reads a repeated key once, standing at
+    // the position of its first occurrence and holding the value
+    // of its last, and the reader here reads it the same way.
+    let parsed = parse("{\"a\": 1, \"b\": 2, \"a\": 3}").unwrap();
+    let Value::Object(entries) = &parsed else {
+        panic!("the document parses to an object");
+    };
+    assert_eq!(entries.len(), 2, "the repeated key stands once");
+    assert_eq!(entries[0].0, "a");
+    assert_eq!(entries[0].1, Value::Int("3".to_string()));
+    assert_eq!(entries[1].0, "b");
+    assert_eq!(entries[1].1, Value::Int("2".to_string()));
+    assert_eq!(parsed.get("a"), Some(&Value::Int("3".to_string())));
+    // The emitted form shows the key once with the last value.
+    assert_eq!(dumps_compact(&parsed), "{\"a\": 3, \"b\": 2}");
+    // Construction through Value::object folds the same way.
+    let built = Value::object(vec![
+        ("a".to_string(), Value::Int("1".to_string())),
+        ("b".to_string(), Value::Int("2".to_string())),
+        ("a".to_string(), Value::Int("3".to_string())),
+    ]);
+    assert_eq!(built, parsed);
 }
 
 #[test]
