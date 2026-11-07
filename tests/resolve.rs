@@ -6,9 +6,7 @@ use std::rc::Rc;
 
 use common::{field, list, temp_dir, value};
 use thirdshift::pyjson::{self, Value};
-use thirdshift::{
-    apply_resolutions, load_resolutions, run_backlog, FakeClock, Item, RunOptions,
-};
+use thirdshift::{FakeClock, Item, RunOptions, apply_resolutions, load_resolutions, run_backlog};
 
 fn item(item_id: &str, title: &str, kind: &str, question: &str) -> Value {
     let mut entry = Item::new(item_id, title);
@@ -20,8 +18,18 @@ fn item(item_id: &str, title: &str, kind: &str, question: &str) -> Value {
 fn make_record() -> Value {
     let entries = vec![
         item("task-1", "alpha", "work", ""),
-        item("task-2", "first gate", "decision", "Ship the synthetic gate"),
-        item("task-3", "second gate", "decision", "Ship the second synthetic gate"),
+        item(
+            "task-2",
+            "first gate",
+            "decision",
+            "Ship the synthetic gate",
+        ),
+        item(
+            "task-3",
+            "second gate",
+            "decision",
+            "Ship the second synthetic gate",
+        ),
     ];
     let options = RunOptions {
         clock: Some(Rc::new(FakeClock::new(0.0))),
@@ -35,7 +43,9 @@ fn approve_first() -> Value {
 }
 
 fn reject_second() -> Value {
-    value(r#"{"decision": "decision-task-3", "note": "hold for the next window", "verdict": "reject"}"#)
+    value(
+        r#"{"decision": "decision-task-3", "note": "hold for the next window", "verdict": "reject"}"#,
+    )
 }
 
 fn text(entry: &Value, name: &str) -> String {
@@ -128,9 +138,8 @@ fn the_resolved_list_follows_the_brief_order_not_the_file_order() {
 fn a_resolution_naming_a_decision_the_brief_does_not_carry_is_refused() {
     let record = make_record();
     let snapshot = record.clone();
-    let stranger = value(
-        r#"{"decision": "decision-task-9", "note": "who is this", "verdict": "approve"}"#,
-    );
+    let stranger =
+        value(r#"{"decision": "decision-task-9", "note": "who is this", "verdict": "approve"}"#);
     let error = apply_resolutions(&record, &[stranger]).unwrap_err();
     assert!(error.0.contains("decision-task-9"), "message {}", error.0);
     assert_eq!(record, snapshot);
@@ -149,9 +158,8 @@ fn a_decision_named_twice_in_one_resolutions_list_is_refused() {
 fn a_verdict_that_is_neither_approve_nor_reject_is_refused() {
     let record = make_record();
     let snapshot = record.clone();
-    let shrug = value(
-        r#"{"decision": "decision-task-2", "note": "undecided", "verdict": "maybe"}"#,
-    );
+    let shrug =
+        value(r#"{"decision": "decision-task-2", "note": "undecided", "verdict": "maybe"}"#);
     let error = apply_resolutions(&record, &[shrug]).unwrap_err();
     assert!(error.0.contains("decision-task-2"), "message {}", error.0);
     assert_eq!(record, snapshot);
@@ -161,9 +169,8 @@ fn a_verdict_that_is_neither_approve_nor_reject_is_refused() {
 fn a_refusal_after_a_valid_resolution_still_applies_nothing() {
     let record = make_record();
     let snapshot = record.clone();
-    let stranger = value(
-        r#"{"decision": "decision-task-9", "note": "who is this", "verdict": "approve"}"#,
-    );
+    let stranger =
+        value(r#"{"decision": "decision-task-9", "note": "who is this", "verdict": "approve"}"#);
     assert!(apply_resolutions(&record, &[approve_first(), stranger]).is_err());
     assert_eq!(record, snapshot);
 }

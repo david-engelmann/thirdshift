@@ -48,7 +48,11 @@ fn make_resolutions(dir: &std::path::Path, data: &Value) -> PathBuf {
     path
 }
 
-fn resolve(dir: &std::path::Path, brief: &PathBuf, resolutions: &PathBuf) -> common::CliOutput {
+fn resolve(
+    dir: &std::path::Path,
+    brief: &std::path::Path,
+    resolutions: &std::path::Path,
+) -> common::CliOutput {
     run_cli(
         &[
             "resolve",

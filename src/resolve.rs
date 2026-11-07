@@ -61,8 +61,7 @@ pub fn load_resolutions(path: &Path) -> Result<Vec<Value>, ReadError<ResolutionE
 /// carrying a decisions list, the shape the brief step writes.
 /// Anything else is a load error.
 fn parse_brief_record(data: Value) -> Result<Value, ResolutionError> {
-    let valid = data.is_object()
-        && matches!(data.get("decisions"), Some(Value::List(_)));
+    let valid = data.is_object() && matches!(data.get("decisions"), Some(Value::List(_)));
     if !valid {
         return Err(refusal(
             "brief file is not a brief record, it carries no decisions list".to_string(),
@@ -110,15 +109,13 @@ pub fn read_brief_file(path: &Path) -> Result<Value, ReadError<ResolutionError>>
 /// copies anything, so an entry defect answers at status 2
 /// even on a brief deep enough that a copy would fail, and
 /// this check runs where the resolver's own validation runs.
-pub fn check_brief_decision_entries(
-    record: &Value,
-) -> Result<HashSet<String>, ResolutionError> {
+pub fn check_brief_decision_entries(record: &Value) -> Result<HashSet<String>, ResolutionError> {
     let decisions = match record.get("decisions") {
         Some(Value::List(decisions)) => decisions,
         _ => {
             return Err(refusal(
                 "brief record carries no decisions list".to_string(),
-            ))
+            ));
         }
     };
     check_brief_decisions(decisions)
@@ -165,7 +162,7 @@ fn check_resolution(
         _ => {
             return Err(refusal(
                 "malformed resolution, its decision is not a non-empty string".to_string(),
-            ))
+            ));
         }
     };
     let verdict = match entry.get("verdict") {
@@ -174,7 +171,7 @@ fn check_resolution(
             return Err(refusal(format!(
                 "malformed resolution for decision {}, its verdict is not a string",
                 decision
-            )))
+            )));
         }
     };
     let note = match entry.get("note") {
@@ -183,7 +180,7 @@ fn check_resolution(
             return Err(refusal(format!(
                 "malformed resolution for decision {}, its note is not a string",
                 decision
-            )))
+            )));
         }
     };
     if seen_ids.contains(&decision) {
@@ -230,7 +227,7 @@ fn check_brief_decisions(decisions: &[Value]) -> Result<HashSet<String>, Resolut
                 return Err(refusal(
                     "brief record carries a decision whose id is not a non-empty string"
                         .to_string(),
-                ))
+                ));
             }
         };
         let item_ok = matches!(entry.get("item"), Some(Value::Str(_)));
@@ -262,16 +259,13 @@ fn check_brief_decisions(decisions: &[Value]) -> Result<HashSet<String>, Resolut
 /// decision counts block. The returned record shares no state with
 /// the record it was resolved from, because every value here is
 /// owned and cloned.
-pub fn apply_resolutions(
-    record: &Value,
-    resolutions: &[Value],
-) -> Result<Value, ResolutionError> {
+pub fn apply_resolutions(record: &Value, resolutions: &[Value]) -> Result<Value, ResolutionError> {
     let decisions = match record.get("decisions") {
         Some(Value::List(decisions)) => decisions.clone(),
         _ => {
             return Err(refusal(
                 "brief record carries no decisions list".to_string(),
-            ))
+            ));
         }
     };
     let carried_ids = check_brief_decisions(&decisions)?;

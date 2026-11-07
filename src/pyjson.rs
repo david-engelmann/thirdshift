@@ -157,8 +157,7 @@ impl PartialEq for Value {
                 if a.len() != b.len() {
                     return false;
                 }
-                let map: BTreeMap<&str, &Value> =
-                    b.iter().map(|(k, v)| (k.as_str(), v)).collect();
+                let map: BTreeMap<&str, &Value> = b.iter().map(|(k, v)| (k.as_str(), v)).collect();
                 a.iter().all(|(k, v)| map.get(k.as_str()) == Some(&v))
             }
             _ => false,
@@ -403,10 +402,10 @@ fn python_shortest_digits(magnitude: f64) -> (Vec<u8>, i32) {
     let scale = exponent - (precision - 1);
     let mut pool: Vec<Vec<u8>> = vec![digits.clone()];
     for delta in [-2, -1, 1, 2] {
-        if let Some(candidate) = shift_digit_string(&digits, delta) {
-            if parse_candidate(&candidate, exponent) == magnitude {
-                pool.push(candidate);
-            }
+        if let Some(candidate) = shift_digit_string(&digits, delta)
+            && parse_candidate(&candidate, exponent) == magnitude
+        {
+            pool.push(candidate);
         }
     }
     if pool.len() == 1 {
@@ -485,7 +484,7 @@ pub fn py_float_repr(value: f64) -> String {
     if negative {
         out.push('-');
     }
-    if exponent < -4 || exponent >= 16 {
+    if !(-4..16).contains(&exponent) {
         out.push_str(&digits[..1]);
         if digits.len() > 1 {
             out.push('.');
@@ -573,7 +572,7 @@ fn write_float(value: f64, out: &mut String) {
     }
 }
 
-fn sorted_entries<'a>(entries: &'a [(String, Value)]) -> Vec<&'a (String, Value)> {
+fn sorted_entries(entries: &[(String, Value)]) -> Vec<&(String, Value)> {
     let mut order: Vec<&(String, Value)> = entries.iter().collect();
     order.sort_by(|a, b| a.0.cmp(&b.0));
     order
@@ -1169,12 +1168,8 @@ fn py_float_whitespace(ch: char) -> bool {
             | '\u{85}'
             | '\u{a0}'
             | '\u{1680}'
-            | '\u{2000}'..='\u{200a}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202f}'
-            | '\u{205f}'
-            | '\u{3000}'
+            | '\u{2000}'
+            ..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}'
     )
 }
 
@@ -1202,8 +1197,7 @@ pub fn py_float_parse(raw: &str) -> Option<f64> {
     for (index, ch) in chars.iter().enumerate() {
         if *ch == '_' {
             let before = index > 0 && decimal_digit_value(chars[index - 1]).is_some();
-            let after =
-                index + 1 < chars.len() && decimal_digit_value(chars[index + 1]).is_some();
+            let after = index + 1 < chars.len() && decimal_digit_value(chars[index + 1]).is_some();
             if !before || !after {
                 return None;
             }

@@ -98,13 +98,20 @@ fn cli_enqueue_run_brief_end_to_end() {
     );
     assert_eq!(brief.code, 0, "stderr {}", brief.stderr);
     let data = pyjson::parse(&std::fs::read_to_string(&json_path).unwrap()).unwrap();
-    assert_eq!(field(field(&data, "counts"), "recorded"), &thirdshift::Value::uint(2));
+    assert_eq!(
+        field(field(&data, "counts"), "recorded"),
+        &thirdshift::Value::uint(2)
+    );
     let decisions = list(&data, "decisions");
     assert_eq!(
         decisions[0].get("question").and_then(|q| q.as_str()),
         Some("Ship the synthetic gate")
     );
-    assert!(std::fs::read_to_string(&md_path).unwrap().contains("task-1"));
+    assert!(
+        std::fs::read_to_string(&md_path)
+            .unwrap()
+            .contains("task-1")
+    );
 }
 
 #[test]
@@ -158,10 +165,7 @@ fn cli_rejects_a_backlog_object_without_a_tasks_list() {
     let dir = temp_dir("e2e-bad-shape");
     let backlog = dir.join("backlog.json");
     common::write_json(&backlog, &common::value(r#"{"items": []}"#));
-    let out = run_cli(
-        &["run", "--backlog", &backlog.display().to_string()],
-        &dir,
-    );
+    let out = run_cli(&["run", "--backlog", &backlog.display().to_string()], &dir);
     assert_eq!(out.code, 2);
     assert!(!out.stderr.trim().is_empty());
     assert!(!out.stderr.contains("Traceback"));
@@ -177,10 +181,7 @@ fn cli_invalid_utf8_backlog_exits_2_without_traceback() {
         b"{\"tasks\": [{\"id\": \"x\", \"title\": \"\xff\xfe\"}]}",
     )
     .unwrap();
-    let out = run_cli(
-        &["run", "--backlog", &backlog.display().to_string()],
-        &root,
-    );
+    let out = run_cli(&["run", "--backlog", &backlog.display().to_string()], &root);
     assert_eq!(out.code, 2);
     assert!(!out.stderr.contains("Traceback"));
 }

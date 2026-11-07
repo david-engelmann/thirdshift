@@ -21,9 +21,7 @@ pub fn field<'a>(value: &'a Value, name: &str) -> &'a Value {
 }
 
 pub fn list<'a>(value: &'a Value, name: &str) -> &'a Vec<Value> {
-    field(value, name)
-        .as_list()
-        .expect("field is a list")
+    field(value, name).as_list().expect("field is a list")
 }
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);

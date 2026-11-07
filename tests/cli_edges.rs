@@ -80,7 +80,13 @@ fn a_resolutions_file_at_the_reader_ceiling_resolves_and_one_past_it_refuses() {
         &format!("{{\"resolutions\": [], \"deep\": {}}}", lists(9993)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "brief.json", "--resolutions", "deep.json"],
+        &[
+            "resolve",
+            "--brief",
+            "brief.json",
+            "--resolutions",
+            "deep.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 0, "stderr {}", out.stderr);
@@ -90,7 +96,13 @@ fn a_resolutions_file_at_the_reader_ceiling_resolves_and_one_past_it_refuses() {
         &format!("{{\"resolutions\": [], \"deep\": {}}}", lists(9994)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "brief.json", "--resolutions", "deep.json"],
+        &[
+            "resolve",
+            "--brief",
+            "brief.json",
+            "--resolutions",
+            "deep.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -102,8 +114,7 @@ fn a_resolutions_file_at_the_reader_ceiling_resolves_and_one_past_it_refuses() {
 }
 
 fn root_brief() -> String {
-    std::fs::read_to_string(root().join("examples/brief.json"))
-        .expect("example brief readable")
+    std::fs::read_to_string(root().join("examples/brief.json")).expect("example brief readable")
 }
 
 #[test]
@@ -120,7 +131,13 @@ fn a_brief_at_the_record_ceiling_resolves_and_one_past_it_refuses() {
         &format!("{{\"decisions\": [], \"deep\": {}}}", lists(496)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 0, "stderr {}", out.stderr);
@@ -130,7 +147,13 @@ fn a_brief_at_the_record_ceiling_resolves_and_one_past_it_refuses() {
         &format!("{{\"decisions\": [], \"deep\": {}}}", lists(497)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -162,7 +185,13 @@ fn a_brief_with_object_shaped_depth_at_the_ceiling_resolves_and_one_past_it_refu
         &format!("{{\"decisions\": [], \"deep\": {}}}", objects(495)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 0, "stderr {}", out.stderr);
@@ -172,7 +201,13 @@ fn a_brief_with_object_shaped_depth_at_the_ceiling_resolves_and_one_past_it_refu
         &format!("{{\"decisions\": [], \"deep\": {}}}", objects(496)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -204,7 +239,13 @@ fn a_brief_with_a_scalar_at_the_foot_of_list_shaped_depth_refuses_at_the_same_co
         ),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 0, "stderr {}", out.stderr);
@@ -217,7 +258,13 @@ fn a_brief_with_a_scalar_at_the_foot_of_list_shaped_depth_refuses_at_the_same_co
         ),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -246,7 +293,13 @@ fn a_brief_both_entry_invalid_and_past_the_copy_ceiling_answers_with_the_validat
         ),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 2);
@@ -264,7 +317,13 @@ fn a_brief_both_entry_invalid_and_past_the_copy_ceiling_answers_with_the_validat
         ),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -300,7 +359,13 @@ fn the_copy_ceilings_and_the_resolution_validation_answer_in_the_resolvers_order
     };
     write(&dir, "deep.json", &entry_deep(495));
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 2);
@@ -311,7 +376,13 @@ fn the_copy_ceilings_and_the_resolution_validation_answer_in_the_resolvers_order
     );
     write(&dir, "deep.json", &entry_deep(496));
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -326,7 +397,13 @@ fn the_copy_ceilings_and_the_resolution_validation_answer_in_the_resolvers_order
         &format!("{{\"decisions\": [], \"deep\": {}}}", lists(497)),
     );
     let out = run_cli(
-        &["resolve", "--brief", "deep.json", "--resolutions", "res.json"],
+        &[
+            "resolve",
+            "--brief",
+            "deep.json",
+            "--resolutions",
+            "res.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 2);
@@ -350,7 +427,15 @@ fn an_enqueue_at_the_written_ceiling_writes_and_one_past_it_leaves_the_file() {
     );
     write(&dir, "deep.json", &at_ceiling);
     let out = run_cli(
-        &["enqueue", "--file", "deep.json", "--id", "y", "--title", "t"],
+        &[
+            "enqueue",
+            "--file",
+            "deep.json",
+            "--id",
+            "y",
+            "--title",
+            "t",
+        ],
         &dir,
     );
     assert_eq!(out.code, 0, "stderr {}", out.stderr);
@@ -360,7 +445,15 @@ fn an_enqueue_at_the_written_ceiling_writes_and_one_past_it_leaves_the_file() {
     );
     write(&dir, "deep.json", &past_ceiling);
     let out = run_cli(
-        &["enqueue", "--file", "deep.json", "--id", "y", "--title", "t"],
+        &[
+            "enqueue",
+            "--file",
+            "deep.json",
+            "--id",
+            "y",
+            "--title",
+            "t",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -383,7 +476,13 @@ fn failed_writes_exit_1_with_one_error_line() {
     std::fs::create_dir(dir.join("somedir")).expect("directory made");
 
     let out = run_cli(
-        &["run", "--backlog", "backlog.json", "--result", "nodir/out.json"],
+        &[
+            "run",
+            "--backlog",
+            "backlog.json",
+            "--result",
+            "nodir/out.json",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -404,7 +503,13 @@ fn failed_writes_exit_1_with_one_error_line() {
     );
 
     let out = run_cli(
-        &["brief", "--backlog", "backlog.json", "--md", "nodir/brief.md"],
+        &[
+            "brief",
+            "--backlog",
+            "backlog.json",
+            "--md",
+            "nodir/brief.md",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);
@@ -436,7 +541,15 @@ fn failed_writes_exit_1_with_one_error_line() {
     assert!(dir.join("ok.md").is_file(), "the Markdown write stands");
 
     let out = run_cli(
-        &["enqueue", "--file", "nodir/e.json", "--id", "i", "--title", "t"],
+        &[
+            "enqueue",
+            "--file",
+            "nodir/e.json",
+            "--id",
+            "i",
+            "--title",
+            "t",
+        ],
         &dir,
     );
     assert_eq!(out.code, 1);

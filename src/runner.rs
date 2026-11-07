@@ -212,11 +212,7 @@ fn field_type_error(entry: &Value) -> Option<String> {
     let item_id = entry.get("id").cloned().unwrap_or(Value::Null);
     match &item_id {
         Value::Str(text) if !text.is_empty() => {}
-        _ => {
-            return Some(
-                "malformed backlog entry, its id is not a non-empty string".to_string(),
-            )
-        }
+        _ => return Some("malformed backlog entry, its id is not a non-empty string".to_string()),
     }
     for field in ["title", "kind", "question"] {
         let value = entry.get(field).cloned().unwrap_or(Value::Null);
@@ -237,10 +233,7 @@ fn field_type_error(entry: &Value) -> Option<String> {
 /// without running. Nothing is dropped either way. A runnable item
 /// carries the id, title, kind, and question as JSON values, as the
 /// dict entry carried them.
-fn prepare_entry(
-    entry: &Value,
-    seen_ids: &mut HashSet<String>,
-) -> (Option<Value>, Option<Value>) {
+fn prepare_entry(entry: &Value, seen_ids: &mut HashSet<String>) -> (Option<Value>, Option<Value>) {
     let item = if entry.is_object() {
         if entry.get("id").is_none() {
             let title = match entry.get("title") {
@@ -452,12 +445,12 @@ fn run_with_queue(
             .unwrap_or("")
             .to_string();
         let title = item.get("title").cloned().unwrap_or(Value::Null);
-        if let Some(window) = window_seconds {
-            if clock.now() - started_at >= window {
-                unstarted += 1;
-                ran.push(recorded_entry(&item_id, title, WINDOW_CLOSED_REASON));
-                continue;
-            }
+        if let Some(window) = window_seconds
+            && clock.now() - started_at >= window
+        {
+            unstarted += 1;
+            ran.push(recorded_entry(&item_id, title, WINDOW_CLOSED_REASON));
+            continue;
         }
         started += 1;
         let worker_id = worker_ids[index % worker_ids.len()].clone();
@@ -524,11 +517,7 @@ fn run_with_queue(
         .iter()
         .filter_map(|entry| {
             let output = entry.get("output").cloned().unwrap_or(Value::Null);
-            if output.truthy() {
-                Some(output)
-            } else {
-                None
-            }
+            if output.truthy() { Some(output) } else { None }
         })
         .collect();
     let finished = ran
@@ -545,10 +534,7 @@ fn run_with_queue(
             Value::object(vec![
                 ("backlog".to_string(), Value::usize(entries.len())),
                 ("finished".to_string(), Value::usize(finished)),
-                (
-                    "unfinished".to_string(),
-                    Value::usize(recorded - finished),
-                ),
+                ("unfinished".to_string(), Value::usize(recorded - finished)),
                 ("recorded".to_string(), Value::usize(recorded)),
             ]),
         ),

@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use common::{field, list, value};
 use thirdshift::pyjson::{self, Value};
-use thirdshift::{brief_json, brief_markdown, run_backlog, FakeClock, Item, RunOptions};
+use thirdshift::{FakeClock, Item, RunOptions, brief_json, brief_markdown, run_backlog};
 
 fn item(item_id: &str, title: &str, kind: &str, question: &str) -> Value {
     let mut entry = Item::new(item_id, title);
@@ -151,12 +151,7 @@ fn the_two_brief_forms_carry_the_same_content() {
     let stock = field(&data, "stock");
     let expected: BTreeMap<String, String> = labels
         .iter()
-        .map(|(key, label)| {
-            (
-                label.to_string(),
-                pyjson::py_str(field(stock, key)),
-            )
-        })
+        .map(|(key, label)| (label.to_string(), pyjson::py_str(field(stock, key))))
         .collect();
     assert_eq!(markdown_stock_block(&md), expected);
 }
@@ -182,7 +177,12 @@ fn briefs_do_not_depend_on_backlog_entry_order() {
     ];
     let forward = run(&four);
     let backward = run(&four.iter().rev().cloned().collect::<Vec<_>>());
-    let shuffled = run(&[four[2].clone(), four[0].clone(), four[3].clone(), four[1].clone()]);
+    let shuffled = run(&[
+        four[2].clone(),
+        four[0].clone(),
+        four[3].clone(),
+        four[1].clone(),
+    ]);
     assert_eq!(backward, forward);
     assert_eq!(shuffled, forward);
     assert_eq!(brief_json(&backward), brief_json(&forward));

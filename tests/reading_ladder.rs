@@ -12,8 +12,7 @@ use std::path::PathBuf;
 
 use common::{list, root, run_cli, temp_dir};
 use thirdshift::{
-    load_backlog, load_resolutions, read_backlog_file, read_brief_file,
-    read_resolutions_file,
+    load_backlog, load_resolutions, read_backlog_file, read_brief_file, read_resolutions_file,
 };
 
 const REFUSAL_KINDS: [&str; 3] = [

@@ -35,10 +35,10 @@ fn contract_stub_obligations_exist() {
         let Some((number, _)) = rest.split_once('.') else {
             continue;
         };
-        if number.len() == 1 {
-            if let Ok(number) = number.parse::<u32>() {
-                found.push((number, line.to_string()));
-            }
+        if number.len() == 1
+            && let Ok(number) = number.parse::<u32>()
+        {
+            found.push((number, line.to_string()));
         }
     }
     assert!(
@@ -81,6 +81,33 @@ fn readme_status_reports_rounds() {
         counts,
         vec!["6".to_string()],
         "README status must report exactly one closed round count"
+    );
+}
+
+#[test]
+fn the_ci_gate_steps_run_the_full_gate() {
+    let text = std::fs::read_to_string(root().join(".github/workflows/ci.yml")).unwrap();
+    assert!(
+        text.contains("merge_group"),
+        "the CI gate must run for the merge queue"
+    );
+    assert!(
+        text.contains("cargo fmt --check"),
+        "the CI gate must check formatting"
+    );
+    assert!(text.contains("cargo clippy"), "the CI gate must run clippy");
+    assert!(text.contains("Run CI gate"), "the CI gate step is missing");
+    assert!(
+        text.contains("cargo test"),
+        "the CI gate must run the cargo gate"
+    );
+    assert!(
+        text.contains("dtolnay/rust-toolchain"),
+        "the CI gate needs the Rust toolchain step"
+    );
+    assert!(
+        !text.contains("pytest"),
+        "the Python gate is retired in this slice"
     );
 }
 

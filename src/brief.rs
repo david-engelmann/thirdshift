@@ -19,11 +19,12 @@ fn text(value: &Value) -> String {
 }
 
 pub fn brief_markdown(record: &Value) -> String {
-    let mut lines: Vec<String> = Vec::new();
-    lines.push("# Morning brief".to_string());
-    lines.push(String::new());
-    lines.push("## What ran".to_string());
-    lines.push(String::new());
+    let mut lines: Vec<String> = vec![
+        "# Morning brief".to_string(),
+        String::new(),
+        "## What ran".to_string(),
+        String::new(),
+    ];
     if let Some(ran) = record.get("ran").and_then(Value::as_list) {
         for entry in ran {
             let mut parts: Vec<String> = vec![format!("- {}", text(field(entry, "id")))];
@@ -109,10 +110,7 @@ pub fn brief_markdown(record: &Value) -> String {
             text(field(window, "elapsed_seconds"))
         ));
         lines.push(format!("- started {}", text(field(window, "started"))));
-        lines.push(format!(
-            "- unstarted {}",
-            text(field(window, "unstarted"))
-        ));
+        lines.push(format!("- unstarted {}", text(field(window, "unstarted"))));
     }
     lines.push(String::new());
     lines.join("\n")

@@ -10,8 +10,8 @@ use common::{field, list, root, value};
 use thirdshift::pyjson::{self, Value};
 use thirdshift::runner::{RunError, WindowValue};
 use thirdshift::{
-    apply_resolutions, brief_json, brief_markdown, load_backlog, run_backlog, FakeClock,
-    Item, RunOptions, WorkQueue,
+    FakeClock, Item, RunOptions, WorkQueue, apply_resolutions, brief_json, brief_markdown,
+    load_backlog, run_backlog,
 };
 
 const REASON: &str = "the window closed before this item was started";
@@ -98,10 +98,7 @@ fn the_window_reaching_its_end_exactly_starts_no_further_item() {
     assert_eq!(text(&entries["task-1"], "status"), "finished");
     assert_eq!(text(&entries["task-2"], "status"), "unfinished");
     assert_eq!(text(&entries["task-2"], "reason"), REASON);
-    assert_eq!(
-        field(field(&record, "window"), "started"),
-        &Value::uint(1)
-    );
+    assert_eq!(field(field(&record, "window"), "started"), &Value::uint(1));
 }
 
 #[test]
@@ -145,10 +142,7 @@ fn an_item_started_inside_the_window_is_worked_past_its_end() {
     let record = run_window_full(&entries, Some(WindowValue::from(3i64)), 5.0, 0.0);
     let entries_by_id = by_id(&record);
     assert_eq!(text(&entries_by_id["task-1"], "status"), "finished");
-    assert_eq!(
-        text(&entries_by_id["task-1"], "output"),
-        "completed task-1"
-    );
+    assert_eq!(text(&entries_by_id["task-1"], "output"), "completed task-1");
     assert_eq!(text(&entries_by_id["task-2"], "reason"), REASON);
     assert_eq!(text(&entries_by_id["task-3"], "reason"), REASON);
     assert_eq!(
@@ -166,9 +160,11 @@ fn a_zero_window_starts_nothing_and_still_produces_a_brief() {
     );
     assert!(list(&record, "produced").is_empty());
     assert!(list(&record, "decisions").is_empty());
-    assert!(list(&record, "ran")
-        .iter()
-        .all(|entry| text(entry, "reason") == REASON));
+    assert!(
+        list(&record, "ran")
+            .iter()
+            .all(|entry| text(entry, "reason") == REASON)
+    );
     assert_eq!(
         field(&record, "window"),
         &value(r#"{"elapsed_seconds": 0.0, "started": 0, "unstarted": 5, "window_seconds": 0.0}"#)
@@ -183,13 +179,17 @@ fn a_zero_window_starts_nothing_and_still_produces_a_brief() {
 #[test]
 fn a_run_that_finishes_inside_the_window_records_no_window_closed_item() {
     let record = run_window(&backlog(), Some(WindowValue::from(100i64)));
-    assert!(list(&record, "ran")
-        .iter()
-        .all(|entry| text(entry, "reason") != REASON));
+    assert!(
+        list(&record, "ran")
+            .iter()
+            .all(|entry| text(entry, "reason") != REASON)
+    );
     assert_eq!(field(field(&record, "counts"), "finished"), &Value::uint(5));
     assert_eq!(
         field(&record, "window"),
-        &value(r#"{"elapsed_seconds": 5.0, "started": 5, "unstarted": 0, "window_seconds": 100.0}"#)
+        &value(
+            r#"{"elapsed_seconds": 5.0, "started": 5, "unstarted": 0, "window_seconds": 100.0}"#
+        )
     );
     assert_eq!(list(&record, "decisions").len(), 1);
 }
@@ -224,7 +224,10 @@ fn the_window_block_numbers_agree_in_both_brief_renderings() {
         "elapsed seconds".to_string(),
         pyjson::py_str(field(&window, "elapsed_seconds")),
     );
-    expected.insert("started".to_string(), pyjson::py_str(field(&window, "started")));
+    expected.insert(
+        "started".to_string(),
+        pyjson::py_str(field(&window, "started")),
+    );
     expected.insert(
         "unstarted".to_string(),
         pyjson::py_str(field(&window, "unstarted")),

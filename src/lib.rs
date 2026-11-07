@@ -1,4 +1,4 @@
-//! thirdshift, the fleet that works through the usage window.
+//! Runs a stocked backlog of agent tasks through a usage window, records what finished and what did not, hands the unfinished items to the next shift, and writes a morning brief of the run.
 
 pub mod brief;
 pub mod carry;
@@ -13,13 +13,12 @@ pub use brief::{brief_json, brief_markdown};
 pub use carry::{CarryError, carry_backlog, read_record_file};
 pub use clock::{Clock, FakeClock, SystemClock};
 pub use pyjson::Value;
-pub use reading::ReadError;
 pub use queue::{Claim, Item, QueueError, ValueError, WorkQueue};
+pub use reading::ReadError;
 pub use resolve::{
-    ResolutionError, apply_resolutions, load_resolutions, read_brief_file,
-    read_resolutions_file,
+    ResolutionError, apply_resolutions, load_resolutions, read_brief_file, read_resolutions_file,
 };
 pub use runner::{
-    BacklogError, RunError, RunOptions, WindowValue, load_backlog, read_backlog_file,
-    run_backlog, run_backlog_simple, stub_worker,
+    BacklogError, RunError, RunOptions, WindowValue, load_backlog, read_backlog_file, run_backlog,
+    run_backlog_simple, stub_worker,
 };

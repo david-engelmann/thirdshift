@@ -19,9 +19,7 @@ fn queue_at(start: f64) -> (WorkQueue, Rc<FakeClock>) {
 }
 
 fn enqueue(queue: &mut WorkQueue, item_id: &str) {
-    queue
-        .enqueue(Item::new(item_id, "synthetic task"))
-        .unwrap();
+    queue.enqueue(Item::new(item_id, "synthetic task")).unwrap();
 }
 
 #[test]
@@ -83,7 +81,9 @@ fn completion_after_expiry_is_refused_and_changes_nothing() {
     enqueue(&mut queue, "task-1");
     queue.claim("task-1", "worker-1", 30.0).unwrap();
     clock.advance(31.0);
-    let error = queue.complete("task-1", "worker-1", "finished").unwrap_err();
+    let error = queue
+        .complete("task-1", "worker-1", "finished")
+        .unwrap_err();
     assert!(matches!(error, QueueError::ClaimConflict(_)));
     assert!(queue.done.is_empty());
     assert_eq!(queue.claims["task-1"].worker_id, "worker-1");
@@ -110,10 +110,18 @@ fn non_positive_lease_is_rejected_before_any_state_changes() {
         let (mut queue, _clock) = queue_at(100.0);
         enqueue(&mut queue, "task-1");
         let error = queue.claim("task-1", "worker-1", lease).unwrap_err();
-        assert!(matches!(error, QueueError::InvalidLease(_)), "lease {}", lease);
+        assert!(
+            matches!(error, QueueError::InvalidLease(_)),
+            "lease {}",
+            lease
+        );
         assert!(queue.claims.is_empty());
         let error = queue.claim_next("worker-1", lease).unwrap_err();
-        assert!(matches!(error, QueueError::InvalidLease(_)), "lease {}", lease);
+        assert!(
+            matches!(error, QueueError::InvalidLease(_)),
+            "lease {}",
+            lease
+        );
     }
 }
 

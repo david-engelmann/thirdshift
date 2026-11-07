@@ -67,7 +67,10 @@ fn float_repr_tie_picks_the_even_last_digit() {
     // The exact value ends in .25 at a spacing of .25, so the
     // sixteen digit candidates ending in 2 and in 3 sit exactly
     // the same distance away. Python keeps the even last digit.
-    assert_eq!(py_float_repr(2163015292276093.25), "2163015292276093.2");
+    assert_eq!(
+        py_float_repr(2163015292276093.0 + 0.25),
+        "2163015292276093.2"
+    );
 }
 
 #[test]

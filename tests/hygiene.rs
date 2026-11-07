@@ -135,12 +135,14 @@ fn scan_manifest(manifest: &str) -> ManifestScan {
 fn the_crate_depends_on_the_adopted_tool_crates_only() {
     let manifest = std::fs::read_to_string(root().join("Cargo.toml")).unwrap();
     let scan = scan_manifest(&manifest);
-    let names = |map: &BTreeMap<String, Vec<String>>| {
-        map.keys().cloned().collect::<Vec<String>>()
-    };
+    let names = |map: &BTreeMap<String, Vec<String>>| map.keys().cloned().collect::<Vec<String>>();
     assert_eq!(
         names(&scan.runtime),
-        vec!["anyhow".to_string(), "clap".to_string(), "thiserror".to_string()],
+        vec![
+            "anyhow".to_string(),
+            "clap".to_string(),
+            "thiserror".to_string()
+        ],
         "the runtime dependency list is the adopted tool crates and nothing else"
     );
     assert_eq!(
@@ -241,10 +243,12 @@ fn has_home_path(text: &str) -> bool {
     }
     let windows_tail = ["\\", "Users", "\\"].concat();
     for (at, byte) in bytes.iter().enumerate() {
-        if *byte == b':' && at > 0 && bytes[at - 1].is_ascii_alphabetic() {
-            if text[at + 1..].starts_with(&windows_tail) {
-                return true;
-            }
+        if *byte == b':'
+            && at > 0
+            && bytes[at - 1].is_ascii_alphabetic()
+            && text[at + 1..].starts_with(&windows_tail)
+        {
+            return true;
         }
     }
     false
@@ -333,7 +337,7 @@ fn examples_and_fixtures_carry_no_real_world_markers() {
     }
     for entry in std::fs::read_dir(root().join("tests")).unwrap() {
         let path = entry.unwrap().path();
-        if path.extension().map_or(false, |s| s == "rs") {
+        if path.extension().is_some_and(|s| s == "rs") {
             targets.push(path);
         }
     }
