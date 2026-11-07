@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
+    branches-ignore:
+      - 'gh-readonly-queue/**'
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -13,5 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Run CI backstop
+        with:
+          components: rustfmt, clippy
+      - name: Run CI gate
         run: cargo test
