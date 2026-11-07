@@ -115,7 +115,7 @@ Every command reads only the files it is handed. A file that is malformed or can
 
 ## Status
 
-The crate carries a stocked queue with exclusive leased claims on an injected clock, a runner that works a backlog to a full record with nothing dropped silently, and a morning brief in Markdown and JSON with the same content, under contract obligations TS-1 to TS-22. Round 2 landed in PR 4 and is recorded closed here, and it adds decision resolution under contract obligations TS-23 to TS-28. Round 3 landed in PR 6 and is recorded closed here, and it adds a run window under contract obligations TS-29 to TS-33. Round 4 landed in PR 8 and is recorded closed here, and it gives the three file surfaces of the tool one shared reading ladder under contract obligation TS-34. Round 5 landed in PR 10 and is recorded closed here, and it ports the implementation to a Rust crate under contract obligations TS-35 to TS-41, with the Python implementation removed in the same slice. Round 6 landed in PR 12 and is recorded closed here, and it adds the carry step under contract obligations TS-42 to TS-47. Round 7 adds the full CI gate, the crate wide format and clippy cleanup, and this README rebuild under contract obligations TS-48 to TS-53, and it changes no behaviour the earlier rounds landed. Closed rounds 6 of 100. Part of the impatient programming portfolio, in the Fleet Operations arc.
+The tool is complete at the surface its contract describes, with no stubbed or held back part, and the full CI gate runs on every change. Closed rounds 7 of 100. Part of the impatient programming portfolio, in the Fleet Operations arc.
 
 ## License
 
