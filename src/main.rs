@@ -864,12 +864,16 @@ mod tests {
             }
             None
         }
+        fn collect(command: &clap::Command, shorts: &mut Vec<Option<char>>) {
+            shorts.push(help_short(command));
+            for sub in command.get_subcommands() {
+                collect(sub, shorts);
+            }
+        }
         let mut command = Cli::command();
         command.build();
-        let mut shorts = vec![help_short(&command)];
-        for sub in command.get_subcommands() {
-            shorts.push(help_short(sub));
-        }
+        let mut shorts = Vec::new();
+        collect(&command, &mut shorts);
         shorts
     }
 
