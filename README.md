@@ -115,7 +115,7 @@ Every command reads only the files it is handed. A file that is malformed or can
 
 ## Status
 
-The tool is complete at the surface its contract describes, with no stubbed or held back part, and the full CI gate runs on every change. Closed rounds 9 of 100. Part of the impatient programming portfolio, in the Fleet Operations arc.
+The tool is complete at the surface its contract describes, with no stubbed or held back part, and the full CI gate runs on every change. Round 10 landed in PR 21, guarding the help short on every command in the tree and closing the root table gap in the long pin. Closed rounds 10 of 100. Part of the impatient programming portfolio, in the Fleet Operations arc.
 
 ## License
 
