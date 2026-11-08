@@ -789,3 +789,46 @@ fn run() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Derive the root long set from the built command in
+    /// the manner subcommand_specs derives the long set of
+    /// a subcommand, collecting the long of every argument
+    /// the root command carries and completing the set with
+    /// the help long where it stands absent.
+    fn derived_root_longs() -> Vec<String> {
+        let mut command = Cli::command();
+        command.build();
+        let mut longs: Vec<String> = Vec::new();
+        for arg in command.get_arguments() {
+            let Some(long) = arg.get_long() else {
+                continue;
+            };
+            let name = format!("--{}", long);
+            if !longs.contains(&name) {
+                longs.push(name);
+            }
+        }
+        if !longs.iter().any(|long| long == "--help") {
+            longs.push("--help".to_string());
+        }
+        longs
+    }
+
+    /// TS-58. The hand set the preprocess walk reads help
+    /// tokens against on the root holds the help long alone,
+    /// and it holds it because the root command declares no
+    /// other long. This pin derives the root long set from
+    /// the built command and asserts the derived set is the
+    /// one help long, so a long added to the root command,
+    /// declared as an argument or raised by an attribute,
+    /// fails here in the open instead of leaving the hand
+    /// set standing behind the parser in silence.
+    #[test]
+    fn root_long_set_is_the_one_help_long() {
+        assert_eq!(derived_root_longs(), vec!["--help".to_string()]);
+    }
+}
