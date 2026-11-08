@@ -620,6 +620,16 @@ enum Preprocess {
     FireHelp(Option<String>),
 }
 
+/// The hand set the preprocess walk reads help tokens
+/// against on the root, holding the help long alone
+/// because the root command declares no other long
+/// (TS-58). The set stands in one function so the pin
+/// of TS-58 can read the same table the walk reads
+/// (TS-62).
+fn root_longs() -> Vec<String> {
+    vec!["--help".to_string()]
+}
+
 /// Walk the arguments the way the Python parser's scan walked
 /// them, after the window join, and prepare them for clap.
 ///
@@ -642,7 +652,7 @@ enum Preprocess {
 fn preprocess(tokens: &[OsString]) -> Preprocess {
     let joined = join_window_value(tokens);
     let specs = subcommand_specs();
-    let root_longs: Vec<String> = vec!["--help".to_string()];
+    let root_longs: Vec<String> = root_longs();
     let mut out: Vec<OsString> = Vec::new();
     let mut current: Option<usize> = None;
     let mut pending = false;
@@ -827,8 +837,59 @@ mod tests {
     /// declared as an argument or raised by an attribute,
     /// fails here in the open instead of leaving the hand
     /// set standing behind the parser in silence.
+    ///
+    /// TS-62 adds the second assertion, that the table
+    /// root_longs returns equals the derived set, so an
+    /// edit to the table alone fails here as well.
     #[test]
     fn root_long_set_is_the_one_help_long() {
         assert_eq!(derived_root_longs(), vec!["--help".to_string()]);
+        assert_eq!(root_longs(), derived_root_longs());
+    }
+
+    /// Derive the short of the help argument of every
+    /// command in the tree, the root command first and
+    /// then its subcommands in their own order, finding
+    /// each argument by its help long in the manner
+    /// derived_root_longs collects the longs of the root
+    /// command, and standing absent in a command's place
+    /// where that command carries no argument with the
+    /// help long.
+    fn derived_help_shorts() -> Vec<Option<char>> {
+        fn help_short(command: &clap::Command) -> Option<char> {
+            for arg in command.get_arguments() {
+                if arg.get_long() == Some("help") {
+                    return arg.get_short();
+                }
+            }
+            None
+        }
+        let mut command = Cli::command();
+        command.build();
+        let mut shorts = vec![help_short(&command)];
+        for sub in command.get_subcommands() {
+            shorts.push(help_short(sub));
+        }
+        shorts
+    }
+
+    /// TS-61. The two reads that test the second character
+    /// of a token against the letter h, the short help test
+    /// of reads_as_positional and the short help branch of
+    /// help_read, test that character in every context the
+    /// walk reaches, on the root and behind a subcommand
+    /// alike, and they rest on the help argument of every
+    /// command in the tree carrying the short h. This pin
+    /// derives the help short of every command from the
+    /// built command and asserts each one is the letter h,
+    /// so a help short customized to another letter on any
+    /// command, or a command left with no help argument at
+    /// all, fails here in the open instead of leaving the
+    /// two reads standing behind the parser in silence.
+    #[test]
+    fn every_help_short_is_the_letter_h() {
+        let shorts = derived_help_shorts();
+        assert_eq!(shorts.len(), 6);
+        assert!(shorts.iter().all(|short| *short == Some('h')));
     }
 }
