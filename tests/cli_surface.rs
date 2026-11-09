@@ -26,9 +26,9 @@ use std::path::Path;
 use common::{run_cli, temp_dir};
 use thirdshift::pyjson::{self, Value};
 
-const EXPECTED_CASES: usize = 268;
+const EXPECTED_CASES: usize = 280;
 const EXPECTED_ORACLE_CASES: usize = 91;
-const EXPECTED_CLAP_CASES: usize = 177;
+const EXPECTED_CLAP_CASES: usize = 189;
 
 fn string(value: &Value) -> &str {
     value.as_str().expect("corpus text is a string")
