@@ -896,4 +896,656 @@ mod tests {
         assert_eq!(shorts.len(), 6);
         assert!(shorts.iter().all(|short| *short == Some('h')));
     }
+
+    /// Build the token stream a pin of TS-70 hands to the
+    /// walk from the text forms the pin writes.
+    fn walk_tokens(tokens: &[&str]) -> Vec<OsString> {
+        tokens.iter().map(OsString::from).collect()
+    }
+
+    /// The text forms a pin of TS-70 expects the walk to
+    /// hand over.
+    fn walk_strings(tokens: &[&str]) -> Vec<String> {
+        tokens.iter().map(|token| token.to_string()).collect()
+    }
+
+    /// Assert the walk hands the stream over, token for
+    /// token, in the forms the pin names.
+    fn assert_walk_run(tokens: &[&str], expected: &[&str]) {
+        match preprocess(&walk_tokens(tokens)) {
+            Preprocess::Run(out) => {
+                let out: Vec<String> = out
+                    .iter()
+                    .map(|token| token.to_string_lossy().into_owned())
+                    .collect();
+                assert_eq!(out, walk_strings(expected));
+            }
+            Preprocess::FireHelp(name) => {
+                panic!("expected the walk to run, and it fired help for {name:?}")
+            }
+        }
+    }
+
+    /// Assert the walk fires help, for the root where the
+    /// pin names no subcommand and for the named subcommand
+    /// where it does.
+    fn assert_walk_fires(tokens: &[&str], expected: Option<&str>) {
+        match preprocess(&walk_tokens(tokens)) {
+            Preprocess::FireHelp(name) => {
+                assert_eq!(name.as_deref(), expected);
+            }
+            Preprocess::Run(out) => {
+                panic!("expected the walk to fire help, and it ran {out:?}")
+            }
+        }
+    }
+
+    /// TS-70, the window join. A separate token that reads
+    /// as a number after its dash joins onto the window flag
+    /// in the equals form, wherever the flag stands.
+    #[test]
+    fn walk_join_dash_value_joins_onto_the_window_flag() {
+        assert_walk_run(
+            &["--window-seconds", "-2.5", "run"],
+            &["--window-seconds=-2.5", "run"],
+        );
+    }
+
+    /// TS-70, the window join. The value read asks only
+    /// about the first character after the dash, so a value
+    /// with a trailing point joins here where the negative
+    /// number pattern would refuse it.
+    #[test]
+    fn walk_join_first_digit_decides_the_value_read() {
+        assert_walk_run(
+            &["run", "--window-seconds", "-5."],
+            &["run", "--window-seconds=-5."],
+        );
+    }
+
+    /// TS-70, the window join. A point after the dash with a
+    /// digit after it reads as a value and joins.
+    #[test]
+    fn walk_join_point_and_digit_value_joins() {
+        assert_walk_run(
+            &["--window-seconds", "-.5", "run"],
+            &["--window-seconds=-.5", "run"],
+        );
+    }
+
+    /// TS-70, the window join. The whole rest after the dash
+    /// reading as one of the three words reads as a value
+    /// and joins.
+    #[test]
+    fn walk_join_word_value_joins() {
+        assert_walk_run(
+            &["run", "--window-seconds", "-inf"],
+            &["run", "--window-seconds=-inf"],
+        );
+    }
+
+    /// TS-70, the window join. The word read follows the
+    /// ignore case rule of the pattern, so a mixed case word
+    /// joins the same way.
+    #[test]
+    fn walk_join_word_value_reads_in_any_case() {
+        assert_walk_run(
+            &["run", "--window-seconds", "-NaN"],
+            &["run", "--window-seconds=-NaN"],
+        );
+    }
+
+    /// TS-70, the window join. The pattern end anchor
+    /// matches just before one trailing newline, so the word
+    /// with a newline after it still reads as a value.
+    #[test]
+    fn walk_join_word_value_before_a_trailing_newline_joins() {
+        assert_walk_run(
+            &["run", "--window-seconds", "-infinity\n"],
+            &["run", "--window-seconds=-infinity\n"],
+        );
+    }
+
+    /// TS-70, the window join. A next token that reads as no
+    /// value leaves the pair unjoined, and the walk reads
+    /// the pair on its own terms from there.
+    #[test]
+    fn walk_join_token_that_reads_as_no_value_stands_unjoined() {
+        assert_walk_run(
+            &["run", "--window-seconds", "-x"],
+            &["run", "--window-seconds", "-x"],
+        );
+    }
+
+    /// TS-70, the window join. The flag standing at the end
+    /// of the stream has no next token and stands unjoined.
+    #[test]
+    fn walk_join_flag_at_the_end_of_the_stream_stands_unjoined() {
+        assert_walk_run(&["run", "--window-seconds"], &["run", "--window-seconds"]);
+    }
+
+    /// TS-70, the window join. The join reads the flag at
+    /// every standing in the list, each against the token
+    /// that follows it.
+    #[test]
+    fn walk_join_matches_the_flag_at_a_second_standing() {
+        assert_walk_run(
+            &["run", "--window-seconds", "-1", "--window-seconds", "-inf"],
+            &["run", "--window-seconds=-1", "--window-seconds=-inf"],
+        );
+    }
+
+    /// TS-70, help. The exact long help token fires for the
+    /// root.
+    #[test]
+    fn walk_help_long_exact_fires_at_the_root() {
+        assert_walk_fires(&["--help"], None);
+    }
+
+    /// TS-70, help. An abbreviation of the help long that
+    /// exactly one entry of the root table carries fires the
+    /// same way.
+    #[test]
+    fn walk_help_long_abbreviation_fires_at_the_root() {
+        assert_walk_fires(&["--he"], None);
+    }
+
+    /// TS-70, help. The exact long help token behind a
+    /// subcommand fires for that subcommand, because the
+    /// table subcommand_specs builds carries the help long.
+    #[test]
+    fn walk_help_long_exact_fires_behind_a_subcommand() {
+        assert_walk_fires(&["carry", "--help"], Some("carry"));
+    }
+
+    /// TS-70, help. The abbreviated long help token behind a
+    /// subcommand fires the same way, no declared long of
+    /// any subcommand beginning with the letter h.
+    #[test]
+    fn walk_help_long_abbreviation_fires_behind_a_subcommand() {
+        assert_walk_fires(&["brief", "--hel"], Some("brief"));
+    }
+
+    /// TS-70, help. A long token matching exactly one table
+    /// entry that is not the help long reads as no help.
+    #[test]
+    fn walk_help_long_matching_one_other_flag_reads_no_help() {
+        assert_walk_run(&["run", "--r=x"], &["run", "--r=x"]);
+    }
+
+    /// TS-70, help. A help token fires ahead of an unmatched
+    /// option token the root already collected, the extra
+    /// never stopping the scan from reaching it.
+    #[test]
+    fn walk_help_fires_ahead_of_a_collected_extra() {
+        assert_walk_fires(&["--bogus", "--help"], None);
+    }
+
+    /// TS-70, help. A long token matching no table entry
+    /// reads as no help.
+    #[test]
+    fn walk_help_long_matching_no_flag_reads_no_help() {
+        assert_walk_run(&["--helpme"], &["--helpme"]);
+    }
+
+    /// TS-70, help. A long token matching two entries of
+    /// the table reads as no help, the match never being
+    /// unique.
+    #[test]
+    fn walk_help_long_ambiguous_abbreviation_reads_no_help() {
+        assert_walk_run(&["carry", "--b", "x"], &["carry", "--b", "x"]);
+    }
+
+    /// TS-70, help. The help long carrying an equals value
+    /// refuses, the token stands as it was written, and a
+    /// help token after it never fires.
+    #[test]
+    fn walk_help_long_with_an_equals_argument_refuses() {
+        assert_walk_run(&["--help=x", "-h"], &["--help=x", "-h"]);
+    }
+
+    /// TS-70, help. The help long carrying an empty equals
+    /// value refuses the same way.
+    #[test]
+    fn walk_help_long_with_an_empty_equals_argument_refuses() {
+        assert_walk_run(&["--help=", "-h"], &["--help=", "-h"]);
+    }
+
+    /// TS-70, help. An abbreviation of the help long
+    /// carrying an equals value refuses on the same arm as
+    /// the exact name.
+    #[test]
+    fn walk_help_abbreviated_long_with_an_equals_argument_refuses() {
+        assert_walk_run(&["--he=x", "-h"], &["--he=x", "-h"]);
+    }
+
+    /// TS-70, help. A token whose name before the equals
+    /// sign is the bare double dash never reaches the match,
+    /// by the length guard in the read.
+    #[test]
+    fn walk_help_bare_double_dash_name_reads_no_help() {
+        assert_walk_run(&["--=x"], &["--=x"]);
+    }
+
+    /// TS-70, help. The bare short help token fires for the
+    /// root.
+    #[test]
+    fn walk_help_short_fires_at_the_root() {
+        assert_walk_fires(&["-h"], None);
+    }
+
+    /// TS-70, help. The bare short help token behind a
+    /// subcommand fires for that subcommand.
+    #[test]
+    fn walk_help_short_fires_behind_a_subcommand() {
+        assert_walk_fires(&["run", "-h"], Some("run"));
+    }
+
+    /// TS-70, help. A short bundle continuing with a letter
+    /// fires, the continuation being neither of the two the
+    /// read takes as a value arriving.
+    #[test]
+    fn walk_help_short_bundle_fires_at_the_root() {
+        assert_walk_fires(&["-hx"], None);
+    }
+
+    /// TS-70, help. A short bundle continuing with a digit
+    /// behind a subcommand fires the same way.
+    #[test]
+    fn walk_help_short_bundle_fires_behind_a_subcommand() {
+        assert_walk_fires(&["resolve", "-h5"], Some("resolve"));
+    }
+
+    /// TS-70, help. The short help token with an equals
+    /// continuation refuses, and the stream carries the
+    /// replacement in the long equals form.
+    #[test]
+    fn walk_help_short_with_an_equals_argument_refuses() {
+        assert_walk_run(&["-h=x", "--help"], &["--help=x", "--help"]);
+    }
+
+    /// TS-70, help. The short help token with an empty
+    /// equals continuation refuses into the bare long equals
+    /// form.
+    #[test]
+    fn walk_help_short_with_an_empty_equals_argument_refuses() {
+        assert_walk_run(&["-h="], &["--help="]);
+    }
+
+    /// TS-70, help. The short help token with a dash
+    /// continuation refuses, the replacement carrying the
+    /// bytes from the dash on.
+    #[test]
+    fn walk_help_short_with_a_dash_argument_refuses() {
+        assert_walk_run(&["-h-x"], &["--help=-x"]);
+    }
+
+    /// TS-70, help. The short help token continuing with
+    /// two dashes refuses on the same arm.
+    #[test]
+    fn walk_help_short_with_a_double_dash_argument_refuses() {
+        assert_walk_run(&["-h--"], &["--help=--"]);
+    }
+
+    /// TS-70, help. The capital letter is not the letter
+    /// the short read tests, so the token reads as no help.
+    #[test]
+    fn walk_help_capital_letter_reads_no_help() {
+        assert_walk_run(&["-H"], &["-H"]);
+    }
+
+    /// TS-70, help. A short token of another letter reads as
+    /// no help.
+    #[test]
+    fn walk_help_other_short_token_reads_no_help() {
+        assert_walk_run(&["-x"], &["-x"]);
+    }
+
+    /// TS-70, help. A standing flag reads its value
+    /// candidate first, so the short help token blocks as a
+    /// value instead of firing or standing as one.
+    #[test]
+    fn walk_help_short_never_fires_as_a_pending_value() {
+        assert_walk_run(&["run", "--backlog", "-h"], &["run", "--backlog", "-h"]);
+    }
+
+    /// TS-70, help. The long help token as a standing flag's
+    /// value candidate blocks on the same arm.
+    #[test]
+    fn walk_help_long_never_fires_as_a_pending_value() {
+        assert_walk_run(
+            &["run", "--backlog", "--help"],
+            &["run", "--backlog", "--help"],
+        );
+    }
+
+    /// TS-70, the value flags. A value flag takes the bare
+    /// word after it and the walk joins the pair in the
+    /// equals form.
+    #[test]
+    fn walk_flag_value_joins_onto_its_flag() {
+        assert_walk_run(
+            &["run", "--backlog", "b.json"],
+            &["run", "--backlog=b.json"],
+        );
+    }
+
+    /// TS-70, the value flags. An abbreviation standing for
+    /// exactly one value flag of the subcommand sets the
+    /// pending state the same way as the full name.
+    #[test]
+    fn walk_flag_abbreviation_takes_its_value_the_same_way() {
+        assert_walk_run(&["run", "--win", "30"], &["run", "--win=30"]);
+    }
+
+    /// TS-70, the value flags. An abbreviated window flag
+    /// keeps its own spelling in the joined form, the window
+    /// join never having read it under its full name.
+    #[test]
+    fn walk_flag_abbreviated_window_flag_keeps_its_own_spelling() {
+        assert_walk_run(&["run", "--window", "-2.5"], &["run", "--window=-2.5"]);
+    }
+
+    /// TS-70, the value flags. A value arriving already
+    /// joined sets no pending state, so a help token after
+    /// it still fires.
+    #[test]
+    fn walk_flag_value_arriving_joined_sets_no_pending() {
+        assert_walk_fires(&["run", "--backlog=b.json", "-h"], Some("run"));
+    }
+
+    /// TS-70, the value flags. A plain separate value the
+    /// window join never reads joins by the pending arm
+    /// instead.
+    #[test]
+    fn walk_flag_plain_value_joins_by_the_pending_arm() {
+        assert_walk_run(
+            &["run", "--window-seconds", "5"],
+            &["run", "--window-seconds=5"],
+        );
+    }
+
+    /// TS-70, the value flags. A long token behind a
+    /// subcommand matching no value flag takes no value, and
+    /// the word after it stands as its own token.
+    #[test]
+    fn walk_flag_name_matching_no_flag_takes_no_value() {
+        assert_walk_run(&["run", "--bogus", "x"], &["run", "--bogus", "x"]);
+    }
+
+    /// TS-70, the value flags. A bare word behind a
+    /// subcommand with no flag standing joins nothing and
+    /// blocks nothing.
+    #[test]
+    fn walk_flag_bare_word_behind_a_subcommand_stands_unjoined() {
+        assert_walk_run(&["run", "word"], &["run", "word"]);
+    }
+
+    /// TS-70, the value flags. A short token behind a
+    /// subcommand stands as its own token the same way.
+    #[test]
+    fn walk_flag_short_token_behind_a_subcommand_stands_unjoined() {
+        assert_walk_run(&["run", "-x"], &["run", "-x"]);
+    }
+
+    /// TS-70, the value flags. A negative number reads as a
+    /// positional, so it joins onto a standing flag.
+    #[test]
+    fn walk_flag_negative_number_value_joins() {
+        assert_walk_run(&["run", "--result", "-2.5"], &["run", "--result=-2.5"]);
+    }
+
+    /// TS-70, the value flags. A dash token carrying a
+    /// space reads as a positional whatever its prefix, so
+    /// it joins onto a standing flag.
+    #[test]
+    fn walk_flag_dash_value_carrying_a_space_joins() {
+        assert_walk_run(&["run", "--backlog", "-a b"], &["run", "--backlog=-a b"]);
+    }
+
+    /// TS-70, the value flags. A lone dash reads as a
+    /// positional and joins.
+    #[test]
+    fn walk_flag_lone_dash_value_joins() {
+        assert_walk_run(&["run", "--backlog", "-"], &["run", "--backlog=-"]);
+    }
+
+    /// TS-70, the value flags. An empty token reads as a
+    /// positional, never starting with a dash, and joins.
+    #[test]
+    fn walk_flag_empty_value_joins() {
+        assert_walk_run(&["run", "--backlog", ""], &["run", "--backlog="]);
+    }
+
+    /// TS-70, the value flags. The negative number pattern
+    /// lets the digits before the point stand empty, so a
+    /// dotted value with digits only after the point joins.
+    #[test]
+    fn walk_flag_dotted_value_with_no_digit_before_the_point_joins() {
+        assert_walk_run(&["run", "--result", "-.5"], &["run", "--result=-.5"]);
+    }
+
+    /// TS-70, the value flags. A trailing point with no
+    /// digit after it fails the pattern, so the token blocks
+    /// instead of joining, the standing flag left unjoined.
+    #[test]
+    fn walk_flag_dotted_value_with_a_trailing_point_blocks() {
+        assert_walk_run(&["run", "--result", "-5."], &["run", "--result", "-5."]);
+    }
+
+    /// TS-70, the value flags. The pattern end anchor
+    /// matches just before one trailing newline, so a number
+    /// with a newline after it joins.
+    #[test]
+    fn walk_flag_number_value_before_a_trailing_newline_joins() {
+        assert_walk_run(&["run", "--result", "-42\n"], &["run", "--result=-42\n"]);
+    }
+
+    /// TS-70, the value flags. The short help family decides
+    /// ahead of the space rule, so a help letter token
+    /// carrying a space blocks as a standing flag's value
+    /// instead of joining.
+    #[test]
+    fn walk_flag_help_family_value_blocks_instead_of_joining() {
+        assert_walk_run(&["run", "--backlog", "-h x"], &["run", "--backlog", "-h x"]);
+    }
+
+    /// TS-70, the value flags. A standing flag meeting an
+    /// option token blocks, and every later token passes
+    /// through untouched, a help token among them.
+    #[test]
+    fn walk_flag_option_token_after_a_standing_flag_blocks_the_stream() {
+        assert_walk_run(
+            &["run", "--backlog", "--result", "-h"],
+            &["run", "--backlog", "--result", "-h"],
+        );
+    }
+
+    /// TS-70, the value flags. A flag standing at the end of
+    /// the stream is handed over unjoined.
+    #[test]
+    fn walk_flag_standing_at_the_end_of_the_stream_stands_unjoined() {
+        assert_walk_run(&["run", "--backlog"], &["run", "--backlog"]);
+    }
+
+    /// TS-70, the value flags. No pending state ever stands
+    /// at the root, the root declaring no value flags, so a
+    /// flag shaped token there takes no value.
+    #[test]
+    fn walk_flag_at_the_root_takes_no_value() {
+        assert_walk_run(&["--backlog", "x"], &["--backlog", "x"]);
+    }
+
+    /// TS-70, the value flags. A repeated flag sets the
+    /// pending state at each standing, and each value joins
+    /// onto its own flag token.
+    #[test]
+    fn walk_flag_repeated_joins_each_value_onto_its_own_flag() {
+        assert_walk_run(
+            &["run", "--backlog", "a", "--backlog", "b"],
+            &["run", "--backlog=a", "--backlog=b"],
+        );
+    }
+
+    /// TS-70, recognition. A word equal to a subcommand name
+    /// enters its spec, and the reads after it stand on that
+    /// subcommand's tables.
+    #[test]
+    fn walk_recognition_subcommand_word_enters_its_spec() {
+        assert_walk_fires(&["carry", "--out", "o", "-h"], Some("carry"));
+    }
+
+    /// TS-70, recognition. Subcommand names match exactly,
+    /// so an abbreviation enters nothing and the word blocks
+    /// as a positional at the root.
+    #[test]
+    fn walk_recognition_subcommand_names_never_abbreviate() {
+        assert_walk_run(&["car", "-h"], &["car", "-h"]);
+    }
+
+    /// TS-70, recognition. A case variant of a name enters
+    /// nothing the same way.
+    #[test]
+    fn walk_recognition_subcommand_names_match_in_their_own_case() {
+        assert_walk_run(&["Run", "-h"], &["Run", "-h"]);
+    }
+
+    /// TS-70, recognition. A positional word at the root
+    /// blocks, and a help token after it passes through
+    /// untouched.
+    #[test]
+    fn walk_recognition_positional_at_the_root_blocks_the_stream() {
+        assert_walk_run(&["word", "-h"], &["word", "-h"]);
+    }
+
+    /// TS-70, recognition. A negative number at the root
+    /// reads as a positional and blocks the same way.
+    #[test]
+    fn walk_recognition_negative_number_at_the_root_blocks_the_stream() {
+        assert_walk_run(&["-2.5", "-h"], &["-2.5", "-h"]);
+    }
+
+    /// TS-70, recognition. A dash token carrying a space at
+    /// the root reads as a positional and blocks the same
+    /// way.
+    #[test]
+    fn walk_recognition_dash_token_carrying_a_space_blocks_the_stream() {
+        assert_walk_run(&["-a b", "-h"], &["-a b", "-h"]);
+    }
+
+    /// TS-70, recognition. An unmatched option token at the
+    /// root blocks nothing, so a subcommand word after it
+    /// still enters its spec.
+    #[test]
+    fn walk_recognition_unmatched_option_at_the_root_blocks_nothing() {
+        assert_walk_fires(&["--bogus", "run", "-h"], Some("run"));
+    }
+
+    /// TS-70, recognition. A second subcommand name behind a
+    /// subcommand is an ordinary token and enters nothing.
+    #[test]
+    fn walk_recognition_second_subcommand_word_stands_as_a_token() {
+        assert_walk_run(&["run", "brief"], &["run", "brief"]);
+    }
+
+    /// TS-70, recognition. A help token after a second
+    /// subcommand word answers for the entered subcommand,
+    /// never for the word.
+    #[test]
+    fn walk_recognition_help_after_a_second_word_names_the_entered_subcommand() {
+        assert_walk_fires(&["run", "brief", "-h"], Some("run"));
+    }
+
+    /// TS-70, recognition. A separator after a blocked word
+    /// is a plain token under the blocked arm and draws no
+    /// duplication after it.
+    #[test]
+    fn walk_recognition_separator_after_a_blocked_word_is_a_plain_token() {
+        assert_walk_run(&["word", "--", "-h"], &["word", "--", "-h"]);
+    }
+
+    /// TS-70, recognition. An empty stream answers as an
+    /// empty handed over stream.
+    #[test]
+    fn walk_recognition_empty_stream_runs_empty() {
+        assert_walk_run(&[], &[]);
+    }
+
+    /// TS-70, recognition. A stream of only a subcommand
+    /// word hands that word over as it stands.
+    #[test]
+    fn walk_recognition_subcommand_word_alone_runs_as_it_stands() {
+        assert_walk_run(&["run"], &["run"]);
+    }
+
+    /// TS-70, the separator. A separator the walk reads ends
+    /// the scan, and a second separator stands inserted
+    /// immediately after it in the handed over stream.
+    #[test]
+    fn walk_separator_ends_the_scan_and_is_duplicated() {
+        assert_walk_run(&["run", "--", "x"], &["run", "--", "--", "x"]);
+    }
+
+    /// TS-70, the separator. A separator at the end of the
+    /// stream is duplicated the same way, the copy standing
+    /// last.
+    #[test]
+    fn walk_separator_at_the_end_of_the_stream_is_duplicated() {
+        assert_walk_run(&["run", "--"], &["run", "--", "--"]);
+    }
+
+    /// TS-70, the separator. Only the first separator is
+    /// recorded, so a second written separator passes
+    /// through as a plain token and the inserted copy stands
+    /// between the two written ones.
+    #[test]
+    fn walk_separator_second_separator_is_a_plain_token() {
+        assert_walk_run(&["run", "--", "--"], &["run", "--", "--", "--"]);
+    }
+
+    /// TS-70, the separator. A separator at the root ends
+    /// the scan there, and the subcommand word after it
+    /// never enters its spec.
+    #[test]
+    fn walk_separator_at_the_root_ends_the_scan() {
+        assert_walk_run(&["--", "run"], &["--", "--", "run"]);
+    }
+
+    /// TS-70, the separator. A help token after the
+    /// separator never fires, the separated arm running
+    /// ahead of the help read.
+    #[test]
+    fn walk_separator_help_after_it_never_fires() {
+        assert_walk_run(&["--", "-h"], &["--", "--", "-h"]);
+    }
+
+    /// TS-70, the separator. A help token behind a
+    /// subcommand after its separator never fires the same
+    /// way.
+    #[test]
+    fn walk_separator_help_behind_a_subcommand_after_it_never_fires() {
+        assert_walk_run(&["run", "--", "-h"], &["run", "--", "--", "-h"]);
+    }
+
+    /// TS-70, the separator. The window join runs ahead of
+    /// the walk, so a pair behind the separator stands
+    /// joined in the handed over stream.
+    #[test]
+    fn walk_separator_window_join_runs_ahead_of_it() {
+        assert_walk_run(
+            &["run", "--", "--window-seconds", "-2.5"],
+            &["run", "--", "--", "--window-seconds=-2.5"],
+        );
+    }
+
+    /// TS-70, the separator. A separator a standing flag
+    /// meets is recorded by the pending arm and duplicated
+    /// the same way, the flag left unjoined.
+    #[test]
+    fn walk_separator_met_by_a_standing_flag_is_duplicated_the_same_way() {
+        assert_walk_run(
+            &["run", "--backlog", "--", "x"],
+            &["run", "--backlog", "--", "--", "x"],
+        );
+    }
 }
