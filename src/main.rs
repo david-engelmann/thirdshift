@@ -1201,6 +1201,14 @@ mod tests {
         assert_walk_run(&["-x"], &["-x"]);
     }
 
+    /// TS-76, help. A lone dash carries no second character
+    /// for the short arm to test, so it reads as no help and
+    /// stands as a positional.
+    #[test]
+    fn walk_help_lone_dash_reads_no_help() {
+        assert_walk_run(&["-"], &["-"]);
+    }
+
     /// TS-70, help. A standing flag reads its value
     /// candidate first, so the short help token blocks as a
     /// value instead of firing or standing as one.
@@ -1339,6 +1347,18 @@ mod tests {
     #[test]
     fn walk_flag_number_value_before_a_trailing_newline_joins() {
         assert_walk_run(&["run", "--result", "-42\n"], &["run", "--result=-42\n"]);
+    }
+
+    /// TS-76, the value flags. The pattern end anchor
+    /// forgives exactly one trailing newline, so a number
+    /// carrying two does not read as a number and the flag
+    /// stands unjoined.
+    #[test]
+    fn walk_flag_number_value_before_two_trailing_newlines_blocks() {
+        assert_walk_run(
+            &["run", "--result", "-42\n\n"],
+            &["run", "--result", "-42\n\n"],
+        );
     }
 
     /// TS-70, the value flags. The short help family decides
