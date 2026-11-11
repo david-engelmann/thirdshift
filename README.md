@@ -115,7 +115,7 @@ Every command reads only the files it is handed. A file that is malformed or can
 
 ## Status
 
-The tool is complete at the surface its contract describes, with no stubbed or held back part, and the full CI gate runs on every change. Round 10 landed in PR 21, guarding the help short on every command in the tree and closing the root table gap in the long pin. Round 11 landed in PR 23, firing the help battery behind carry in the committed corpus and closing the firing gap its review had recorded. Round 12 landed in PR 25, pinning the preprocess walk's branches by direct unit tests. Round 13 landed in PR 27, firing the carry command behind its states in the committed corpus. Closed rounds 13 of 100. Part of the impatient programming portfolio, in the Fleet Operations arc.
+The tool is complete at the surface its contract describes, with no stubbed or held back part, and the full CI gate runs on every change. Round 10 landed in PR 21, guarding the help short on every command in the tree and closing the root table gap in the long pin. Round 11 landed in PR 23, firing the help battery behind carry in the committed corpus and closing the firing gap its review had recorded. Round 12 landed in PR 25, pinning the preprocess walk's branches by direct unit tests. Round 13 landed in PR 27, firing the carry command behind its states in the committed corpus. Round 14 landed in PR 29, staging the carry check order's unstaged precedence pairs in the committed corpus. Closed rounds 14 of 100. Part of the impatient programming portfolio, in the Fleet Operations arc.
 
 ## License
 
