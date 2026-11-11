@@ -6709,7 +6709,7 @@
       "name": "carry-order-id-before-status-on-one-entry",
       "source": "oracle",
       "seed": {
-        "handoff-backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"kind\": \"work\",\n      \"question\": \"\"\n    }\n  ]\n}\n",
+        "handoff-backlog.json": "{\n  \"tasks\": []\n}\n",
         "handoff-record.json": "{\n  \"ran\": [\n    {\n      \"id\": 5,\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"bogus\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    }\n  ]\n}\n"
       },
       "argv": [
@@ -6729,8 +6729,37 @@
           "backlog.json": "{\n  \"tasks\": [\n    {\"id\": \"task-1\", \"title\": \"Sort the synthetic inbox\", \"kind\": \"work\", \"question\": \"\"},\n    {\"id\": \"task-2\", \"title\": \"Draft the synthetic summary\", \"kind\": \"work\", \"question\": \"\"},\n    {\"id\": \"task-3\", \"title\": \"Rebuild the synthetic index\", \"kind\": \"fail\", \"question\": \"\"},\n    {\"id\": \"task-4\", \"title\": \"Approve the synthetic release\", \"kind\": \"decision\", \"question\": \"Release the synthetic build tonight\"},\n    {\"id\": \"task-5\", \"title\": \"File the synthetic report\", \"kind\": \"work\", \"question\": \"\"}\n  ]\n}\n",
           "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
           "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n",
-          "handoff-backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"kind\": \"work\",\n      \"question\": \"\"\n    }\n  ]\n}\n",
+          "handoff-backlog.json": "{\n  \"tasks\": []\n}\n",
           "handoff-record.json": "{\n  \"ran\": [\n    {\n      \"id\": 5,\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"bogus\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    }\n  ]\n}\n"
+        }
+      }
+    },
+    {
+      "name": "carry-order-record-shape-before-backlog-naming",
+      "source": "oracle",
+      "seed": {
+        "handoff-backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"kind\": \"work\",\n      \"question\": \"\"\n    },\n    {\n      \"title\": \"File the synthetic report\",\n      \"kind\": \"work\",\n      \"question\": \"\"\n    }\n  ]\n}\n",
+        "handoff-record.json": "{\n  \"counts\": {\n    \"backlog\": 2,\n    \"finished\": 1,\n    \"recorded\": 1,\n    \"unfinished\": 0\n  }\n}\n"
+      },
+      "argv": [
+        "carry",
+        "--backlog",
+        "handoff-backlog.json",
+        "--brief",
+        "handoff-record.json",
+        "--out",
+        "handoff-carried.json"
+      ],
+      "expect": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "error - brief file is not a brief record, it carries no ran list\n",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\"id\": \"task-1\", \"title\": \"Sort the synthetic inbox\", \"kind\": \"work\", \"question\": \"\"},\n    {\"id\": \"task-2\", \"title\": \"Draft the synthetic summary\", \"kind\": \"work\", \"question\": \"\"},\n    {\"id\": \"task-3\", \"title\": \"Rebuild the synthetic index\", \"kind\": \"fail\", \"question\": \"\"},\n    {\"id\": \"task-4\", \"title\": \"Approve the synthetic release\", \"kind\": \"decision\", \"question\": \"Release the synthetic build tonight\"},\n    {\"id\": \"task-5\", \"title\": \"File the synthetic report\", \"kind\": \"work\", \"question\": \"\"}\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n",
+          "handoff-backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"kind\": \"work\",\n      \"question\": \"\"\n    },\n    {\n      \"title\": \"File the synthetic report\",\n      \"kind\": \"work\",\n      \"question\": \"\"\n    }\n  ]\n}\n",
+          "handoff-record.json": "{\n  \"counts\": {\n    \"backlog\": 2,\n    \"finished\": 1,\n    \"recorded\": 1,\n    \"unfinished\": 0\n  }\n}\n"
         }
       }
     }
