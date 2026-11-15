@@ -9061,6 +9061,138 @@
           "backlog.json": "{\n  \"tasks\": [\n    {\"id\": \"task-1\", \"title\": \"Sort the synthetic inbox\", \"kind\": \"work\", \"question\": \"\"},\n    {\"id\": \"task-2\", \"title\": \"Draft the synthetic summary\", \"kind\": \"work\", \"question\": \"\"},\n    {\"id\": \"task-3\", \"title\": \"Rebuild the synthetic index\", \"kind\": \"fail\", \"question\": \"\"},\n    {\"id\": \"task-4\", \"title\": \"Approve the synthetic release\", \"kind\": \"decision\", \"question\": \"Release the synthetic build tonight\"},\n    {\"id\": \"task-5\", \"title\": \"File the synthetic report\", \"kind\": \"work\", \"question\": \"\"}\n  ]\n}\n"
         }
       }
+    },
+    {
+      "name": "run-malformed-pair-reason-outranks-title",
+      "source": "oracle",
+      "argv": [
+        "run",
+        "--backlog",
+        "backlog.json"
+      ],
+      "seed": {
+        "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": 7,\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha title\"\n    },\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu title\"\n    }\n  ]\n}\n"
+      },
+      "expect": {
+        "code": 0,
+        "stderr": "",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": 7,\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha title\"\n    },\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu title\"\n    }\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n"
+        },
+        "stdout": "{\n  \"counts\": {\n    \"backlog\": 2,\n    \"finished\": 0,\n    \"recorded\": 2,\n    \"unfinished\": 2\n  },\n  \"decisions\": [],\n  \"produced\": [],\n  \"ran\": [\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, it carries no id\",\n      \"status\": \"unfinished\",\n      \"title\": \"Zulu title\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, its id is not a non-empty string\",\n      \"status\": \"unfinished\",\n      \"title\": \"Alpha title\",\n      \"worker\": \"\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 0,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n"
+      }
+    },
+    {
+      "name": "run-malformed-trio-reason-order",
+      "source": "oracle",
+      "argv": [
+        "run",
+        "--backlog",
+        "backlog.json"
+      ],
+      "seed": {
+        "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": 7,\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha title\"\n    },\n    \"a bare string entry\",\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu title\"\n    }\n  ]\n}\n"
+      },
+      "expect": {
+        "code": 0,
+        "stderr": "",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": 7,\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha title\"\n    },\n    \"a bare string entry\",\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu title\"\n    }\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n"
+        },
+        "stdout": "{\n  \"counts\": {\n    \"backlog\": 3,\n    \"finished\": 0,\n    \"recorded\": 3,\n    \"unfinished\": 3\n  },\n  \"decisions\": [],\n  \"produced\": [],\n  \"ran\": [\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, it carries no id\",\n      \"status\": \"unfinished\",\n      \"title\": \"Zulu title\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, it is not a task object\",\n      \"status\": \"unfinished\",\n      \"title\": \"\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, its id is not a non-empty string\",\n      \"status\": \"unfinished\",\n      \"title\": \"Alpha title\",\n      \"worker\": \"\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 0,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n"
+      }
+    },
+    {
+      "name": "run-malformed-pair-same-title",
+      "source": "oracle",
+      "argv": [
+        "run",
+        "--backlog",
+        "backlog.json"
+      ],
+      "seed": {
+        "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": 7,\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Same title\"\n    },\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Same title\"\n    }\n  ]\n}\n"
+      },
+      "expect": {
+        "code": 0,
+        "stderr": "",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": 7,\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Same title\"\n    },\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Same title\"\n    }\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n"
+        },
+        "stdout": "{\n  \"counts\": {\n    \"backlog\": 2,\n    \"finished\": 0,\n    \"recorded\": 2,\n    \"unfinished\": 2\n  },\n  \"decisions\": [],\n  \"produced\": [],\n  \"ran\": [\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, it carries no id\",\n      \"status\": \"unfinished\",\n      \"title\": \"Same title\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, its id is not a non-empty string\",\n      \"status\": \"unfinished\",\n      \"title\": \"Same title\",\n      \"worker\": \"\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 0,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n"
+      }
+    },
+    {
+      "name": "run-duplicates-before-finished",
+      "source": "oracle",
+      "argv": [
+        "run",
+        "--backlog",
+        "backlog.json"
+      ],
+      "seed": {
+        "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Middle task\"\n    },\n    {\n      \"id\": \"task-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu duplicate\"\n    },\n    {\n      \"id\": \"task-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha duplicate\"\n    }\n  ]\n}\n"
+      },
+      "expect": {
+        "code": 0,
+        "stderr": "",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Middle task\"\n    },\n    {\n      \"id\": \"task-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu duplicate\"\n    },\n    {\n      \"id\": \"task-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha duplicate\"\n    }\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n"
+        },
+        "stdout": "{\n  \"counts\": {\n    \"backlog\": 3,\n    \"finished\": 1,\n    \"recorded\": 3,\n    \"unfinished\": 2\n  },\n  \"decisions\": [],\n  \"produced\": [\n    \"completed task-1\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"\",\n      \"reason\": \"duplicate item id task-1, only the first entry with this id runs\",\n      \"status\": \"unfinished\",\n      \"title\": \"Alpha duplicate\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"task-1\",\n      \"output\": \"\",\n      \"reason\": \"duplicate item id task-1, only the first entry with this id runs\",\n      \"status\": \"unfinished\",\n      \"title\": \"Zulu duplicate\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Middle task\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 1,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n"
+      }
+    },
+    {
+      "name": "run-task-named-malformed-entry",
+      "source": "oracle",
+      "argv": [
+        "run",
+        "--backlog",
+        "backlog.json"
+      ],
+      "seed": {
+        "backlog.json": "{\n  \"tasks\": [\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu title\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha work\"\n    }\n  ]\n}\n"
+      },
+      "expect": {
+        "code": 0,
+        "stderr": "",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Zulu title\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Alpha work\"\n    }\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n"
+        },
+        "stdout": "{\n  \"counts\": {\n    \"backlog\": 2,\n    \"finished\": 1,\n    \"recorded\": 2,\n    \"unfinished\": 1\n  },\n  \"decisions\": [],\n  \"produced\": [\n    \"completed malformed-entry\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, it carries no id\",\n      \"status\": \"unfinished\",\n      \"title\": \"Zulu title\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"completed malformed-entry\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Alpha work\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 1,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n"
+      }
+    },
+    {
+      "name": "run-malformed-among-runnable-ids",
+      "source": "oracle",
+      "argv": [
+        "run",
+        "--backlog",
+        "backlog.json"
+      ],
+      "seed": {
+        "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-9\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Last task\"\n    },\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Middle title\"\n    },\n    {\n      \"id\": \"alpha-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"First task\"\n    }\n  ]\n}\n"
+      },
+      "expect": {
+        "code": 0,
+        "stderr": "",
+        "files": {
+          "backlog.json": "{\n  \"tasks\": [\n    {\n      \"id\": \"task-9\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Last task\"\n    },\n    {\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"Middle title\"\n    },\n    {\n      \"id\": \"alpha-1\",\n      \"kind\": \"work\",\n      \"question\": \"\",\n      \"title\": \"First task\"\n    }\n  ]\n}\n",
+          "brief.json": "{\n  \"counts\": {\n    \"backlog\": 5,\n    \"finished\": 4,\n    \"recorded\": 5,\n    \"unfinished\": 1\n  },\n  \"decisions\": [\n    {\n      \"id\": \"decision-task-4\",\n      \"item\": \"task-4\",\n      \"options\": [\n        \"approve\",\n        \"reject\"\n      ],\n      \"question\": \"Release the synthetic build tonight\"\n    }\n  ],\n  \"produced\": [\n    \"completed task-1\",\n    \"completed task-2\",\n    \"completed task-5\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"task-1\",\n      \"output\": \"completed task-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Sort the synthetic inbox\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-2\",\n      \"output\": \"completed task-2\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Draft the synthetic summary\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-3\",\n      \"output\": \"\",\n      \"reason\": \"stub worker could not complete this task\",\n      \"status\": \"unfinished\",\n      \"title\": \"Rebuild the synthetic index\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"task-4\",\n      \"output\": \"\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Approve the synthetic release\",\n      \"worker\": \"worker-2\"\n    },\n    {\n      \"id\": \"task-5\",\n      \"output\": \"completed task-5\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"File the synthetic report\",\n      \"worker\": \"worker-1\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 5,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n",
+          "resolutions.json": "{\n  \"resolutions\": [\n    {\n      \"decision\": \"decision-task-4\",\n      \"note\": \"Synthetic build approved for the overnight run\",\n      \"verdict\": \"approve\"\n    }\n  ]\n}\n"
+        },
+        "stdout": "{\n  \"counts\": {\n    \"backlog\": 3,\n    \"finished\": 2,\n    \"recorded\": 3,\n    \"unfinished\": 1\n  },\n  \"decisions\": [],\n  \"produced\": [\n    \"completed alpha-1\",\n    \"completed task-9\"\n  ],\n  \"ran\": [\n    {\n      \"id\": \"alpha-1\",\n      \"output\": \"completed alpha-1\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"First task\",\n      \"worker\": \"worker-1\"\n    },\n    {\n      \"id\": \"malformed-entry\",\n      \"output\": \"\",\n      \"reason\": \"malformed backlog entry, it carries no id\",\n      \"status\": \"unfinished\",\n      \"title\": \"Middle title\",\n      \"worker\": \"\"\n    },\n    {\n      \"id\": \"task-9\",\n      \"output\": \"completed task-9\",\n      \"reason\": \"\",\n      \"status\": \"finished\",\n      \"title\": \"Last task\",\n      \"worker\": \"worker-2\"\n    }\n  ],\n  \"stock\": {\n    \"stocked_at_start\": 2,\n    \"stockouts_recorded\": 0,\n    \"workers\": 2\n  }\n}\n"
+      }
     }
   ]
 }
