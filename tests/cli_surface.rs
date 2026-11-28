@@ -26,8 +26,8 @@ use std::path::Path;
 use common::{run_cli, temp_dir};
 use thirdshift::pyjson::{self, Value};
 
-const EXPECTED_CASES: usize = 2089;
-const EXPECTED_ORACLE_CASES: usize = 1900;
+const EXPECTED_CASES: usize = 2113;
+const EXPECTED_ORACLE_CASES: usize = 1924;
 const EXPECTED_CLAP_CASES: usize = 189;
 
 fn string(value: &Value) -> &str {
